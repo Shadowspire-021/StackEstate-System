@@ -4,7 +4,7 @@
 **Date: 2025**  
 **Project: StackEstate System (Laravel 10 + MySQL + XAMPP)**  
 **Root Directory: C:\Users\CodeWebz Solutions\Desktop\StackEstate System**  
-**Application Directory: realestate-manager**
+***Application Directory: realestate-manager**
 
 ---
 
