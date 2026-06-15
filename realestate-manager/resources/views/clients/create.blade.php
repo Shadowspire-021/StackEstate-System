@@ -110,7 +110,6 @@
                                 autocomplete="off"
                                 class="w-full rounded-xl border-gray-200 focus:border-indigo-500 focus:ring-indigo-500 text-sm font-semibold text-gray-800"
                             >
-                            <!-- Custom dropdown box with scrollbar style -->
                             <div 
                                 id="block_dropdown" 
                                 style="max-height: 200px; overflow-y: auto; display: none;"
@@ -121,17 +120,33 @@
                     </div>
 
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Unit (Optional)</label>
+                            <select id="unit_id" name="unit_id" class="w-full rounded-xl border-gray-200 focus:border-indigo-500 focus:ring-indigo-500 text-sm" disabled>
+                                <option value="">-- Assign after creation --</option>
+                            </select>
+                            <div id="unit-loading" class="hidden mt-1 text-xs text-indigo-600 font-semibold">
+                                <svg class="animate-spin inline w-3 h-3 mr-1" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                                Loading available units...
+                            </div>
+                            <div id="unit-preview" class="hidden mt-2 p-3 bg-indigo-50 rounded-xl border border-indigo-100 text-xs space-y-1">
+                                <div class="font-bold text-indigo-800" id="unit-preview-number"></div>
+                                <div class="text-indigo-600"><span class="font-semibold">Floor:</span> <span id="unit-preview-floor"></span></div>
+                                <div class="text-indigo-600"><span class="font-semibold">Size:</span> <span id="unit-preview-size"></span> sq.yd</div>
+                                <div class="text-indigo-600"><span class="font-semibold">Price:</span> Rs. <span id="unit-preview-price"></span></div>
+                            </div>
+                        </div>
                         <div class="md:col-span-2">
                             <label class="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Location / Project Name</label>
                             <input type="text" name="location" value="{{ old('location') }}" placeholder="Green Valley Society, Karachi" class="w-full rounded-xl border-gray-200 focus:border-indigo-500 focus:ring-indigo-500 text-sm">
                         </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <div>
                             <label class="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Size (Sq. Yards)</label>
                             <input type="number" step="0.1" name="size_sqyards" value="{{ old('size_sqyards') }}" placeholder="120" class="w-full rounded-xl border-gray-200 focus:border-indigo-500 focus:ring-indigo-500 text-sm">
                         </div>
-                    </div>
-
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
                             <label class="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Total Deal Value (Rs.)</label>
                             <input type="number" name="total_deal_value" value="{{ old('total_deal_value') }}" placeholder="15000000" class="w-full rounded-xl border-gray-200 focus:border-indigo-500 focus:ring-indigo-500 text-sm">
@@ -192,6 +207,18 @@
                     </div>
 
                     <div x-show="enabled" style="display: none;" class="space-y-6 mt-4">
+                        <!-- Template Selection -->
+                        <div class="p-4 bg-indigo-50/50 rounded-xl border border-indigo-100">
+                            <label class="block text-xs font-semibold text-indigo-600 uppercase tracking-wider mb-2">Select Template (Optional)</label>
+                            <select name="template_id" x-model="templateId" @change="onTemplateChange" class="w-full rounded-xl border-indigo-200 focus:border-indigo-500 focus:ring-indigo-500 text-sm">
+                                <option value="">-- Manual Configuration --</option>
+                                @foreach($templates as $t)
+                                    <option value="{{ $t->id }}">{{ $t->name }} ({{ $t->type_label }} - {{ $t->duration_months }} months)</option>
+                                @endforeach
+                            </select>
+                            <p class="text-xs text-indigo-400 mt-2">Select a template to auto-fill installment schedule, or configure manually below.</p>
+                        </div>
+
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
                                 <label class="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Token / Advance Amount (Rs.)</label>
@@ -428,13 +455,129 @@
                 
                 input.value = formatted;
             }
+
+            // Unit loading — driven by property_id from backend/old input only
+            const unitSelect = document.getElementById('unit_id');
+            const unitLoading = document.getElementById('unit-loading');
+            const unitPreview = document.getElementById('unit-preview');
+
+            // Find or create a hidden property_id input
+            let propertyIdInput = document.querySelector('input[name="property_id"]');
+            if (!propertyIdInput) {
+                propertyIdInput = document.createElement('input');
+                propertyIdInput.type = 'hidden';
+                propertyIdInput.name = 'property_id';
+                propertyIdInput.value = '{{ old("property_id") }}';
+                unitSelect.parentNode.appendChild(propertyIdInput);
+            }
+
+            // Re-check unit availability when property or plot fields change
+            const propertyTypeSelect = document.querySelector('select[name="property_type"]');
+            const plotNumberInput = document.querySelector('input[name="plot_number"]');
+
+            if (propertyTypeSelect) {
+                propertyTypeSelect.addEventListener('change', tryLoadUnits);
+            }
+            if (plotNumberInput) {
+                plotNumberInput.addEventListener('blur', tryLoadUnits);
+            }
+
+            function tryLoadUnits() {
+                if (propertyIdInput.value && propertyIdInput.value !== '') {
+                    loadUnits();
+                } else {
+                    unitSelect.innerHTML = '<option value="">-- Assign after creation --</option>';
+                    unitSelect.disabled = true;
+                    unitPreview.classList.add('hidden');
+                }
+            }
+
+            function loadUnits() {
+                const propertyId = propertyIdInput.value;
+                
+                if (!propertyId) {
+                    unitSelect.innerHTML = '<option value="">-- Assign after creation --</option>';
+                    unitSelect.disabled = true;
+                    unitPreview.classList.add('hidden');
+                    return;
+                }
+
+                unitSelect.disabled = true;
+                unitLoading.classList.remove('hidden');
+                unitPreview.classList.add('hidden');
+                unitSelect.innerHTML = '<option value="">Loading...</option>';
+
+                fetch(`/clients/units-by-property?property_id=${propertyId}`)
+                    .then(response => response.json())
+                    .then(units => {
+                        unitSelect.innerHTML = '<option value="">-- Select Available Unit --</option>';
+                        
+                        if (units.length === 0) {
+                            unitSelect.innerHTML += '<option value="" disabled>No available units for this property</option>';
+                        } else {
+                            units.forEach(unit => {
+                                const option = document.createElement('option');
+                                option.value = unit.id;
+                                option.textContent = `${unit.unit_number} (Floor: ${unit.floor_number || 'N/A'})`;
+                                option.dataset.unit = JSON.stringify(unit);
+                                unitSelect.appendChild(option);
+                            });
+                        }
+                        
+                        unitSelect.disabled = false;
+                        unitLoading.classList.add('hidden');
+
+                        // Restore old selection if exists
+                        const oldUnitId = '{{ old("unit_id") }}';
+                        if (oldUnitId) {
+                            unitSelect.value = oldUnitId;
+                            if (unitSelect.value) {
+                                showUnitPreview(JSON.parse(unitSelect.selectedOptions[0].dataset.unit));
+                            }
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error loading units:', error);
+                        unitSelect.innerHTML = '<option value="">Error loading units</option>';
+                        unitLoading.classList.add('hidden');
+                    });
+            }
+
+            function showUnitPreview(unit) {
+                document.getElementById('unit-preview-number').textContent = unit.unit_number;
+                document.getElementById('unit-preview-floor').textContent = unit.floor_number || 'N/A';
+                document.getElementById('unit-preview-size').textContent = unit.size || 'N/A';
+                document.getElementById('unit-preview-price').textContent = unit.price ? Number(unit.price).toLocaleString() : 'N/A';
+                unitPreview.classList.remove('hidden');
+            }
+
+            // Load units when unit selection changes
+            if (unitSelect) {
+                unitSelect.addEventListener('change', function() {
+                    const selectedOption = this.selectedOptions[0];
+                    if (selectedOption && selectedOption.dataset.unit) {
+                        showUnitPreview(JSON.parse(selectedOption.dataset.unit));
+                    } else {
+                        unitPreview.classList.add('hidden');
+                    }
+                });
+            }
+
+            // Initial load if property is pre-selected
+            if (propertyIdInput.value) {
+                loadUnits();
+            }
             
             // Custom Autocomplete Dropdown for Block / Phase
             const blockInput = document.getElementById('block_input');
             const blockDropdown = document.getElementById('block_dropdown');
             
             if (blockInput && blockDropdown) {
-                const blocksList = Array.from({length: 26}, (_, i) => 'Block ' + String.fromCharCode(65 + i)); // Block A to Z
+                @php
+                    $blockSuggestions = \App\Models\Setting::getValue('block_suggestions');
+                    $blocks = $blockSuggestions ? array_map('trim', explode(',', $blockSuggestions)) : ['Block A', 'Block B', 'Block C', 'Block D', 'Block E', 'Block F', 'Phase 1', 'Phase 2', 'Phase 3'];
+                @endphp
+                const blocksList = @json($blocks);
                 
                 // Show dropdown on click or focus
                 blockInput.addEventListener('focus', showDropdown);
@@ -520,6 +663,8 @@
                 count: {{ old('installment_count') ?: '6' }},
                 interval: '{{ old('installment_interval', 'monthly') }}',
                 startDate: '{{ old('installment_start_date', date('Y-m-d', strtotime('+1 month'))) }}',
+                templateId: '{{ old('template_id', '') }}',
+                templatesData: @json($templates->keyBy('id')->map(fn($t) => ['type' => $t->type, 'duration_months' => $t->duration_months, 'config' => $t->config])->toArray()),
                 schedule: [],
                 remainingBalance: 0,
                 advanceWords: '',
@@ -530,6 +675,15 @@
                         dealInput.addEventListener('input', () => this.calculate());
                     }
                     this.calculate();
+                },
+
+                onTemplateChange() {
+                    if (this.templateId && this.templatesData[this.templateId]) {
+                        const tpl = this.templatesData[this.templateId];
+                        this.count = tpl.duration_months;
+                        this.interval = 'monthly';
+                        this.calculate();
+                    }
                 },
 
                 calculate() {
@@ -551,8 +705,11 @@
                         return;
                     }
 
-                    const baseAmount = Math.floor(this.remainingBalance / this.count);
-                    const remainder = this.remainingBalance % this.count;
+                    const totalCents = Math.round(this.remainingBalance * 100);
+                    const baseCents = Math.floor(totalCents / this.count);
+                    const remainderCents = totalCents % this.count;
+                    const baseAmount = baseCents / 100;
+                    const remainder = remainderCents / 100;
                     
                     let currentDate = new Date(this.startDate);
 

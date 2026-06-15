@@ -18,6 +18,19 @@ class EventServiceProvider extends ServiceProvider
         Registered::class => [
             SendEmailVerificationNotification::class,
         ],
+        \App\Events\ClientCreated::class => [
+            \App\Listeners\SendClientCreatedNotification::class,
+        ],
+        \App\Events\PaymentReceived::class => [
+            \App\Listeners\SendPaymentReceivedNotification::class,
+            \App\Listeners\CreateInvoiceOnPayment::class,
+        ],
+        \App\Events\InstallmentOverdue::class => [
+            \App\Listeners\SendInstallmentOverdueNotification::class,
+        ],
+        \App\Events\InstallmentUpcomingDue::class => [
+            \App\Listeners\SendPaymentReminderNotification::class,
+        ],
     ];
 
     /**

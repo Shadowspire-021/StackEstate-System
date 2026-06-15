@@ -34,4 +34,11 @@ class Receipt extends Model
     {
         return $this->hasMany(Payment::class);
     }
+
+    public function getTotalReceivedToDateAttribute()
+    {
+        return Payment::where('client_id', $this->client_id)
+            ->where('created_at', '<=', $this->created_at)
+            ->sum('amount');
+    }
 }

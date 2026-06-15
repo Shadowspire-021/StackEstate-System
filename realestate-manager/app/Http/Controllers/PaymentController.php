@@ -19,29 +19,53 @@ class PaymentController extends Controller
             }])->findOrFail($clientId);
         }
         
-        $clients = Client::with(['property', 'receipts', 'installments' => function($q) {
-            $q->where('status', 'pending')->orderBy('installment_number');
-        }])->orderBy('full_name')->get()->map(function ($c) {
-            return [
-                'id' => $c->id,
-                'client_id' => $c->client_id ?? '',
-                'full_name' => $c->full_name ?? '',
-                'cnic' => $c->cnic ?? '',
-                'phone' => $c->phone ?? '',
-                'plot_number' => $c->property ? $c->property->plot_number : '',
-                'block_name' => $c->property ? $c->property->block_name : '',
-                'address' => $c->property ? $c->property->address : '',
-                'receipt_numbers' => $c->receipts ? $c->receipts->pluck('receipt_number')->implode(', ') : '',
-                'pending_installments' => $c->installments->map(function ($inst) {
+        if ($clientId) {
+            $clients = $client ? collect([[
+                'id' => $client->id,
+                'client_id' => $client->client_id ?? '',
+                'full_name' => $client->full_name ?? '',
+                'cnic' => $client->cnic ?? '',
+                'phone' => $client->phone ?? '',
+                'plot_number' => $client->property ? $client->property->plot_number : '',
+                'block_name' => $client->property ? $client->property->block_name : '',
+                'address' => $client->property ? $client->property->address : '',
+                'receipt_numbers' => '',
+                'pending_installments' => $client->installments->map(fn($inst) => [
+                    'id' => $inst->id,
+                    'number' => $inst->installment_number,
+                    'amount' => $inst->amount,
+                    'due_date' => $inst->due_date ? $inst->due_date->format('Y-m-d') : '',
+                ]),
+            ]]) : collect();
+        } else {
+            $clients = Client::select('id', 'client_id', 'full_name', 'cnic', 'phone')
+                ->with([
+                    'property:client_id,plot_number,block_name',
+                    'installments' => function ($q) {
+                        $q->where('status', 'pending')->orderBy('installment_number');
+                    },
+                ])->orderBy('full_name')->limit(500)->get()->map(function ($c) {
                     return [
-                        'id' => $inst->id,
-                        'number' => $inst->installment_number,
-                        'amount' => $inst->amount,
-                        'due_date' => $inst->due_date ? $inst->due_date->format('Y-m-d') : '',
+                        'id' => $c->id,
+                        'client_id' => $c->client_id ?? '',
+                        'full_name' => $c->full_name ?? '',
+                        'cnic' => $c->cnic ?? '',
+                        'phone' => $c->phone ?? '',
+                        'plot_number' => $c->property ? $c->property->plot_number : '',
+                        'block_name' => $c->property ? $c->property->block_name : '',
+                        'address' => '',
+                        'receipt_numbers' => '',
+                        'pending_installments' => $c->installments->map(function ($inst) {
+                            return [
+                                'id' => $inst->id,
+                                'number' => $inst->installment_number,
+                                'amount' => $inst->amount,
+                                'due_date' => $inst->due_date ? $inst->due_date->format('Y-m-d') : '',
+                            ];
+                        })
                     ];
-                })
-            ];
-        });
+                });
+        }
         
         return view('payments.create', compact('clients', 'client'));
     }
@@ -94,6 +118,9 @@ class PaymentController extends Controller
                 }
 
                 $paymentNumber = $client->payments()->count() + count($createdPayments) + 1;
+                while (Payment::where('client_id', $client->id)->where('payment_number', $paymentNumber)->exists()) {
+                    $paymentNumber++;
+                }
 
                 $payment = Payment::create([
                     'client_id' => $client->id,
@@ -148,10 +175,15 @@ class PaymentController extends Controller
 
                 \DB::commit();
 
+                // Dispatch notification event for each payment (same as non-receipt path)
+                foreach ($createdPayments as $payment) {
+                    \App\Events\PaymentReceived::dispatch($payment);
+                }
+
                 if ($client->google_drive_folder_id) {
                     \App\Jobs\UploadToDriveJob::dispatch($receipt);
                 } else {
-                    \App\Jobs\SyncToGoogleSheetJob::dispatch($client);
+                    \App\Services\SyncManager::trigger($client);
                 }
 
                 return redirect()->route('clients.show', $client->id)
@@ -160,7 +192,12 @@ class PaymentController extends Controller
             } else {
                 \DB::commit();
 
-                \App\Jobs\SyncToGoogleSheetJob::dispatch($client);
+                // Dispatch notification event for each payment
+                foreach ($createdPayments as $payment) {
+                    \App\Events\PaymentReceived::dispatch($payment);
+                }
+
+                \App\Services\SyncManager::trigger($client);
 
                 return redirect()->route('clients.show', $client->id)
                     ->with('success', 'Payments logged successfully.');
@@ -169,7 +206,7 @@ class PaymentController extends Controller
         } catch (\Exception $e) {
             \DB::rollBack();
             \Log::error('Logging payments failed: ' . $e->getMessage());
-            return back()->withInput()->with('error', 'Failed to log payments: ' . $e->getMessage());
+            return back()->withInput()->with('error', 'Failed to log payments. Please try again.');
         }
     }
 
@@ -205,7 +242,8 @@ class PaymentController extends Controller
             return redirect()->route('clients.show', $clientId)->with('success', 'Payment deleted successfully. Reason: ' . $request->reason);
         } catch (\Exception $e) {
             \DB::rollBack();
-            return back()->with('error', 'Failed to delete payment: ' . $e->getMessage());
+            \Log::error('Failed to delete payment: ' . $e->getMessage());
+            return back()->with('error', 'Failed to delete payment. Please try again.');
         }
     }
 

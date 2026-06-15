@@ -17,7 +17,7 @@ class ReceiptController extends Controller
                 $tempPath = $receiptService->generate($receipt);
             } catch (\Exception $e) {
                 \Log::error('Regenerating receipt failed: ' . $e->getMessage());
-                return back()->with('error', 'Failed to generate receipt: ' . $e->getMessage());
+                return back()->with('error', 'Failed to generate receipt. Please try again.');
             }
         }
 

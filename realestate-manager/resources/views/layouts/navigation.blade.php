@@ -15,8 +15,17 @@
                     <x-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">
                         {{ __('Dashboard') }}
                     </x-nav-link>
-                    <x-nav-link :href="route('clients.index')" :active="request()->routeIs('clients.*') && !request()->routeIs('profiles.*')">
+                    <x-nav-link :href="route('clients.index')" :active="request()->routeIs('clients.*') && !request()->routeIs('profiles.*') && !request()->routeIs('search')">
                         {{ __('Clients') }}
+                    </x-nav-link>
+                    <x-nav-link :href="route('units.index')" :active="request()->routeIs('units.*')">
+                        {{ __('Units') }}
+                    </x-nav-link>
+                    <x-nav-link :href="route('templates.index')" :active="request()->routeIs('templates.*')">
+                        {{ __('Templates') }}
+                    </x-nav-link>
+                    <x-nav-link :href="route('search')" :active="request()->routeIs('search')">
+                        {{ __('Search') }}
                     </x-nav-link>
                     <x-nav-link :href="route('profiles.index')" :active="request()->routeIs('profiles.*')">
                         {{ __('View Profile') }}
@@ -24,14 +33,23 @@
                     <x-nav-link :href="route('payments.create')" :active="request()->routeIs('payments.*')">
                         {{ __('Log Payment') }}
                     </x-nav-link>
+                    <x-nav-link :href="route('activity-logs.index')" :active="request()->routeIs('activity-logs.*')">
+                        {{ __('Activity Logs') }}
+                    </x-nav-link>
                     @can('manage settings')
                         <x-nav-link :href="route('settings.index')" :active="request()->routeIs('settings.*')">
                             {{ __('Settings') }}
+                        </x-nav-link>
+                        <x-nav-link :href="route('backups.index')" :active="request()->routeIs('backups.*')">
+                            {{ __('Backups') }}
                         </x-nav-link>
                     @endcan
                     @can('manage users')
                         <x-nav-link :href="route('users.index')" :active="request()->routeIs('users.*')">
                             {{ __('Users') }}
+                        </x-nav-link>
+                        <x-nav-link :href="route('queue.failed')" :active="request()->routeIs('queue.*')">
+                            {{ __('Queue') }}
                         </x-nav-link>
                     @endcan
                 </div>
@@ -89,8 +107,17 @@
             <x-responsive-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">
                 {{ __('Dashboard') }}
             </x-responsive-nav-link>
-            <x-responsive-nav-link :href="route('clients.index')" :active="request()->routeIs('clients.*') && !request()->routeIs('profiles.*')">
+            <x-responsive-nav-link :href="route('clients.index')" :active="request()->routeIs('clients.*') && !request()->routeIs('profiles.*') && !request()->routeIs('search')">
                 {{ __('Clients') }}
+            </x-responsive-nav-link>
+            <x-responsive-nav-link :href="route('units.index')" :active="request()->routeIs('units.*')">
+                {{ __('Units') }}
+            </x-responsive-nav-link>
+            <x-responsive-nav-link :href="route('templates.index')" :active="request()->routeIs('templates.*')">
+                {{ __('Templates') }}
+            </x-responsive-nav-link>
+            <x-responsive-nav-link :href="route('search')" :active="request()->routeIs('search')">
+                {{ __('Search') }}
             </x-responsive-nav-link>
             <x-responsive-nav-link :href="route('profiles.index')" :active="request()->routeIs('profiles.*')">
                 {{ __('View Profile') }}
@@ -98,14 +125,23 @@
             <x-responsive-nav-link :href="route('payments.create')" :active="request()->routeIs('payments.*')">
                 {{ __('Log Payment') }}
             </x-responsive-nav-link>
+            <x-responsive-nav-link :href="route('activity-logs.index')" :active="request()->routeIs('activity-logs.*')">
+                {{ __('Activity Logs') }}
+            </x-responsive-nav-link>
             @can('manage settings')
                 <x-responsive-nav-link :href="route('settings.index')" :active="request()->routeIs('settings.*')">
                     {{ __('Settings') }}
+                </x-responsive-nav-link>
+                <x-responsive-nav-link :href="route('backups.index')" :active="request()->routeIs('backups.*')">
+                    {{ __('Backups') }}
                 </x-responsive-nav-link>
             @endcan
             @can('manage users')
                 <x-responsive-nav-link :href="route('users.index')" :active="request()->routeIs('users.*')">
                     {{ __('Users') }}
+                </x-responsive-nav-link>
+                <x-responsive-nav-link :href="route('queue.failed')" :active="request()->routeIs('queue.*')">
+                    {{ __('Queue') }}
                 </x-responsive-nav-link>
             @endcan
         </div>

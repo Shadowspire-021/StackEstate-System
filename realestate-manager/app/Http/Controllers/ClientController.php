@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\Client;
 use App\Models\ActivityLog;
+use App\Models\Unit;
+use App\Http\Traits\ClientFilterTrait;
 use Illuminate\Http\Request;
 use Yajra\DataTables\Facades\DataTables;
 use App\Services\GoogleDriveService;
@@ -11,68 +13,58 @@ use App\Jobs\SyncToGoogleSheetJob;
 
 class ClientController extends Controller
 {
+    use ClientFilterTrait;
+
+    /**
+     * Get available units for a property (AJAX endpoint)
+     */
+    public function getUnitsByProperty(Request $request)
+    {
+        $request->validate([
+            'property_id' => 'required|exists:properties,id',
+        ]);
+
+        $units = Unit::where('property_id', $request->property_id)
+            ->where('status', 'available')
+            ->select('id', 'unit_number', 'floor_number', 'size', 'price', 'status')
+            ->orderBy('unit_number')
+            ->get();
+
+        return response()->json($units);
+    }
+
+    /**
+     * Check unit availability (AJAX endpoint)
+     */
+    public function checkUnitAvailability(Request $request)
+    {
+        $request->validate([
+            'unit_id' => 'required|exists:units,id',
+        ]);
+
+        $unit = Unit::find($request->unit_id);
+
+        return response()->json([
+            'available' => $unit->status === 'available',
+            'unit' => [
+                'id' => $unit->id,
+                'unit_number' => e($unit->unit_number),
+                'floor_number' => $unit->floor_number,
+                'size' => $unit->size,
+                'price' => $unit->price,
+                'status' => $unit->status,
+                'property_id' => $unit->property_id,
+            ],
+        ]);
+    }
+
     public function profiles(Request $request)
     {
         if ($request->ajax()) {
             // Only list active, non-trashed clients for the viewing directory
-            $data = Client::with(['property', 'payments'])->select('clients.*');
+            $data = Client::with(['property.unit', 'payments'])->select('clients.*');
 
-            // Apply Date Range Filter (by created_at)
-            if ($request->filled('start_date')) {
-                $data->whereDate('clients.created_at', '>=', $request->get('start_date'));
-            }
-            if ($request->filled('end_date')) {
-                $data->whereDate('clients.created_at', '<=', $request->get('end_date'));
-            }
-
-            // Apply CNIC Filter
-            if ($request->filled('filter_cnic')) {
-                $data->where('clients.cnic', 'like', '%' . $request->get('filter_cnic') . '%');
-            }
-
-            // Apply Plot Number Filter
-            if ($request->filled('filter_plot')) {
-                $data->whereHas('property', function ($q) use ($request) {
-                    $q->where('plot_number', 'like', '%' . $request->get('filter_plot') . '%');
-                });
-            }
-
-            // Apply Block Number Filter
-            if ($request->filled('filter_block')) {
-                $data->whereHas('property', function ($q) use ($request) {
-                    $q->where('block_name', 'like', '%' . $request->get('filter_block') . '%');
-                });
-            }
-
-            // Apply Dues Percentage Filter
-            if ($request->filled('filter_dues')) {
-                $duesRange = $request->get('filter_dues');
-                
-                if ($duesRange === 'fully_paid') {
-                    $data->whereHas('property', function ($q) {
-                        $q->whereRaw('(total_deal_value - (select coalesce(sum(amount), 0) from payments where payments.client_id = properties.client_id)) <= 0');
-                    });
-                } elseif ($duesRange === 'low') {
-                    $data->whereHas('property', function ($q) {
-                        $q->whereRaw('(total_deal_value - (select coalesce(sum(amount), 0) from payments where payments.client_id = properties.client_id)) / total_deal_value > 0')
-                          ->whereRaw('(total_deal_value - (select coalesce(sum(amount), 0) from payments where payments.client_id = properties.client_id)) / total_deal_value <= 0.30');
-                    });
-                } elseif ($duesRange === 'medium') {
-                    $data->whereHas('property', function ($q) {
-                        $q->whereRaw('(total_deal_value - (select coalesce(sum(amount), 0) from payments where payments.client_id = properties.client_id)) / total_deal_value > 0.30')
-                          ->whereRaw('(total_deal_value - (select coalesce(sum(amount), 0) from payments where payments.client_id = properties.client_id)) / total_deal_value <= 0.70');
-                    });
-                } elseif ($duesRange === 'high') {
-                    $data->whereHas('property', function ($q) {
-                        $q->whereRaw('(total_deal_value - (select coalesce(sum(amount), 0) from payments where payments.client_id = properties.client_id)) / total_deal_value > 0.70')
-                          ->whereRaw('(total_deal_value - (select coalesce(sum(amount), 0) from payments where payments.client_id = properties.client_id)) / total_deal_value < 1.00');
-                    });
-                } elseif ($duesRange === 'no_payment') {
-                    $data->whereHas('property', function ($q) {
-                        $q->whereRaw('(select coalesce(sum(amount), 0) from payments where payments.client_id = properties.client_id) = 0');
-                    });
-                }
-            }
+            $this->applyClientFilters($data, $request);
 
             return DataTables::of($data)
                 ->addColumn('action', function($row){
@@ -86,13 +78,26 @@ class ClientController extends Controller
                     $block = $row->property->block_name;
                     return $row->property->plot_number . ($block ? ' - ' . $block : '');
                 })
+                ->addColumn('unit_number', function($row){
+                    if (!$row->property || !$row->property->unit_id) return '<span class="text-gray-400 font-semibold">N/A</span>';
+                    $unit = $row->property->unit;
+                    if (!$unit) return '<span class="text-gray-400 font-semibold">N/A</span>';
+                    $statusColors = [
+                        'available' => 'bg-emerald-100 text-emerald-700',
+                        'booked' => 'bg-amber-100 text-amber-700',
+                        'sold' => 'bg-blue-100 text-blue-700',
+                        'reserved' => 'bg-purple-100 text-purple-700',
+                    ];
+                    $colorClass = $statusColors[$unit->status] ?? 'bg-gray-100 text-gray-700';
+                    return '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ' . $colorClass . '">' . e($unit->unit_number) . '</span>';
+                })
                 ->addColumn('total_deal_value', function($row){
                     return $row->property ? 'Rs. ' . number_format($row->property->total_deal_value) : 'N/A';
                 })
                 ->addColumn('remaining_balance', function($row){
                     if (!$row->property) return '<span class="text-gray-400 font-semibold">N/A</span>';
                     $totalDeal = $row->property->total_deal_value;
-                    $totalPaid = $row->payments()->sum('amount');
+                    $totalPaid = (float) $row->payments->sum('amount');
                     $rem = $totalDeal - $totalPaid;
                     
                     $color = $rem <= 0 ? 'text-emerald-600' : 'text-amber-600';
@@ -108,9 +113,9 @@ class ClientController extends Controller
                         'completed' => 'bg-indigo-50 text-indigo-700 border border-indigo-100',
                     ];
                     $color = $colors[$row->status] ?? 'bg-gray-50 text-gray-700 border border-gray-100';
-                    return '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold uppercase tracking-wider ' . $color . '">' . $row->status . '</span>';
+                    return '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold uppercase tracking-wider ' . $color . '">' . e($row->status) . '</span>';
                 })
-                ->rawColumns(['action', 'status_badge', 'remaining_balance'])
+                ->rawColumns(['action', 'status_badge', 'remaining_balance', 'unit_number'])
                 ->make(true);
         }
 
@@ -121,64 +126,9 @@ class ClientController extends Controller
     {
         if ($request->ajax()) {
             // Include soft-deleted clients on listing
-            $data = Client::withTrashed()->with(['property', 'payments'])->select('clients.*');
+            $data = Client::withTrashed()->with(['property.unit', 'payments'])->select('clients.*');
 
-            // Apply Date Range Filter (by created_at)
-            if ($request->filled('start_date')) {
-                $data->whereDate('clients.created_at', '>=', $request->get('start_date'));
-            }
-            if ($request->filled('end_date')) {
-                $data->whereDate('clients.created_at', '<=', $request->get('end_date'));
-            }
-
-            // Apply CNIC Filter
-            if ($request->filled('filter_cnic')) {
-                $data->where('clients.cnic', 'like', '%' . $request->get('filter_cnic') . '%');
-            }
-
-            // Apply Plot Number Filter
-            if ($request->filled('filter_plot')) {
-                $data->whereHas('property', function ($q) use ($request) {
-                    $q->where('plot_number', 'like', '%' . $request->get('filter_plot') . '%');
-                });
-            }
-
-            // Apply Block Number Filter
-            if ($request->filled('filter_block')) {
-                $data->whereHas('property', function ($q) use ($request) {
-                    $q->where('block_name', 'like', '%' . $request->get('filter_block') . '%');
-                });
-            }
-
-            // Apply Dues Percentage Filter
-            if ($request->filled('filter_dues')) {
-                $duesRange = $request->get('filter_dues');
-                
-                if ($duesRange === 'fully_paid') {
-                    $data->whereHas('property', function ($q) {
-                        $q->whereRaw('(total_deal_value - (select coalesce(sum(amount), 0) from payments where payments.client_id = properties.client_id)) <= 0');
-                    });
-                } elseif ($duesRange === 'low') {
-                    $data->whereHas('property', function ($q) {
-                        $q->whereRaw('(total_deal_value - (select coalesce(sum(amount), 0) from payments where payments.client_id = properties.client_id)) / total_deal_value > 0')
-                          ->whereRaw('(total_deal_value - (select coalesce(sum(amount), 0) from payments where payments.client_id = properties.client_id)) / total_deal_value <= 0.30');
-                    });
-                } elseif ($duesRange === 'medium') {
-                    $data->whereHas('property', function ($q) {
-                        $q->whereRaw('(total_deal_value - (select coalesce(sum(amount), 0) from payments where payments.client_id = properties.client_id)) / total_deal_value > 0.30')
-                          ->whereRaw('(total_deal_value - (select coalesce(sum(amount), 0) from payments where payments.client_id = properties.client_id)) / total_deal_value <= 0.70');
-                    });
-                } elseif ($duesRange === 'high') {
-                    $data->whereHas('property', function ($q) {
-                        $q->whereRaw('(total_deal_value - (select coalesce(sum(amount), 0) from payments where payments.client_id = properties.client_id)) / total_deal_value > 0.70')
-                          ->whereRaw('(total_deal_value - (select coalesce(sum(amount), 0) from payments where payments.client_id = properties.client_id)) / total_deal_value < 1.00');
-                    });
-                } elseif ($duesRange === 'no_payment') {
-                    $data->whereHas('property', function ($q) {
-                        $q->whereRaw('(select coalesce(sum(amount), 0) from payments where payments.client_id = properties.client_id) = 0');
-                    });
-                }
-            }
+            $this->applyClientFilters($data, $request);
 
             return DataTables::of($data)
                 ->addColumn('action', function($row){
@@ -244,13 +194,26 @@ class ClientController extends Controller
                     $block = $row->property->block_name;
                     return $row->property->plot_number . ($block ? ' - ' . $block : '');
                 })
+                ->addColumn('unit_number', function($row){
+                    if (!$row->property || !$row->property->unit_id) return '<span class="text-gray-400 font-semibold">N/A</span>';
+                    $unit = $row->property->unit;
+                    if (!$unit) return '<span class="text-gray-400 font-semibold">N/A</span>';
+                    $statusColors = [
+                        'available' => 'bg-emerald-100 text-emerald-700',
+                        'booked' => 'bg-amber-100 text-amber-700',
+                        'sold' => 'bg-blue-100 text-blue-700',
+                        'reserved' => 'bg-purple-100 text-purple-700',
+                    ];
+                    $colorClass = $statusColors[$unit->status] ?? 'bg-gray-100 text-gray-700';
+                    return '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ' . $colorClass . '">' . e($unit->unit_number) . '</span>';
+                })
                 ->addColumn('total_deal_value', function($row){
                     return $row->property ? 'Rs. ' . number_format($row->property->total_deal_value) : 'N/A';
                 })
                 ->addColumn('remaining_balance', function($row){
                     if (!$row->property) return '<span class="text-gray-400 font-semibold">N/A</span>';
                     $totalDeal = $row->property->total_deal_value;
-                    $totalPaid = $row->payments()->sum('amount');
+                    $totalPaid = (float) $row->payments->sum('amount');
                     $rem = $totalDeal - $totalPaid;
                     
                     $color = $rem <= 0 ? 'text-emerald-600' : 'text-amber-600';
@@ -266,9 +229,9 @@ class ClientController extends Controller
                         'completed' => 'bg-indigo-50 text-indigo-700 border border-indigo-100',
                     ];
                     $color = $colors[$row->status] ?? 'bg-gray-50 text-gray-700 border border-gray-100';
-                    return '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold uppercase tracking-wider ' . $color . '">' . $row->status . '</span>';
+                    return '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold uppercase tracking-wider ' . $color . '">' . e($row->status) . '</span>';
                 })
-                ->rawColumns(['action', 'status_badge', 'remaining_balance'])
+                ->rawColumns(['action', 'status_badge', 'remaining_balance', 'unit_number'])
                 ->make(true);
         }
 
@@ -277,7 +240,8 @@ class ClientController extends Controller
 
     public function create()
     {
-        return view('clients.create');
+        $templates = \App\Models\InstallmentPlanTemplate::orderBy('name')->get();
+        return view('clients.create', compact('templates'));
     }
 
     public function store(Request $request, GoogleDriveService $driveService)
@@ -287,7 +251,7 @@ class ClientController extends Controller
             'full_name' => 'required|string|max:150',
             'father_husband_salutation' => 'required|in:S/O,D/O,W/O',
             'father_husband_name' => 'required|string|max:150',
-            'cnic' => 'required|string|max:15',
+            'cnic' => 'required|string|max:15|unique:clients,cnic',
             'phone' => 'required|string|max:20',
             'residential_address' => 'required|string',
             'vendor_type' => 'required|in:default,custom',
@@ -301,6 +265,12 @@ class ClientController extends Controller
             'total_deal_value' => 'required|numeric|min:1',
             'agreement_date' => 'required|date',
             'notes' => 'nullable|string',
+
+            // Unit selection (optional for backward compatibility)
+            'unit_id' => 'nullable|exists:units,id',
+
+            // Template selection
+            'template_id' => 'nullable|exists:installment_plan_templates,id',
 
             // Installment Calculator additions
             'apply_installment_plan' => 'nullable|boolean',
@@ -320,6 +290,9 @@ class ClientController extends Controller
         try {
             $folderName = date('Y') . '_' . str_replace(' ', '_', $request->full_name) . '_' . str_replace('-', '', $request->cnic);
             $folderId = $driveService->createFolder($folderName);
+            if ($folderId) {
+                $driveService->createClientFolderStructure($folderId);
+            }
         } catch (\Exception $e) {
             \Log::error('Client Onboarding - Google Drive folder creation failed: ' . $e->getMessage());
         }
@@ -352,7 +325,27 @@ class ClientController extends Controller
                 'total_deal_value' => $request->total_deal_value,
                 'agreement_date' => $request->agreement_date,
                 'notes' => $request->notes,
+                'template_id' => $request->template_id,
             ]);
+
+            // Handle unit assignment if provided (with row-level lock to prevent double-booking)
+            if ($request->filled('unit_id')) {
+                $unit = \App\Models\Unit::where('id', $request->unit_id)
+                    ->where('property_id', $property->id) // Ensure unit belongs to property
+                    ->lockForUpdate()
+                    ->first();
+                
+                if ($unit && $unit->status === 'available') {
+                    $property->update(['unit_id' => $unit->id]);
+                    $unit->update(['status' => 'booked']);
+                } elseif ($unit) {
+                    \DB::rollBack();
+                    return back()->withInput()->with('error', 'Unit ' . e($unit->unit_number) . ' is no longer available. It has been assigned to another client. Please select a different unit.');
+                } else {
+                    \DB::rollBack();
+                    return back()->withInput()->with('error', 'Selected unit is not available or does not belong to this property.');
+                }
+            }
 
             \App\Services\ActivityLogger::logCreate($client);
 
@@ -401,51 +394,80 @@ class ClientController extends Controller
                 }
 
                 $remainingBalance = $totalDeal - $advanceAmount;
-                $installmentCount = intval($request->installment_count);
 
-                if ($remainingBalance > 0 && $installmentCount > 0) {
-                    $baseInstallmentAmount = floor($remainingBalance / $installmentCount);
-                    $remainder = $remainingBalance % $installmentCount;
-
+                if ($remainingBalance > 0) {
                     $startDate = new \DateTime($request->installment_start_date);
 
-                    for ($i = 0; $i < $installmentCount; $i++) {
-                        $instAmount = $baseInstallmentAmount;
-                        if ($i === $installmentCount - 1) {
-                            $instAmount += $remainder;
-                        }
+                    // Use template-based generation if template is linked to property
+                    if ($property->template_id) {
+                        $property->load('template');
+                        $template = $property->template;
+                        if ($template) {
+                            $installments = $template->generateInstallments($remainingBalance);
+                            foreach ($installments as $i => $inst) {
+                                $dueDate = clone $startDate;
+                                $dueDate->modify("+{$inst['due_months']} month");
 
-                        $dueDate = clone $startDate;
-                        if ($request->installment_interval === 'monthly') {
-                            $dueDate->modify("+{$i} month");
-                        } else {
-                            $intervalMonths = $i * 3;
-                            $dueDate->modify("+{$intervalMonths} month");
+                                \App\Models\Installment::create([
+                                    'client_id' => $client->id,
+                                    'property_id' => $property->id,
+                                    'installment_number' => $i + 1,
+                                    'amount' => $inst['amount'],
+                                    'original_amount' => $inst['amount'],
+                                    'due_date' => $dueDate->format('Y-m-d'),
+                                    'status' => 'pending'
+                                ]);
+                            }
                         }
+                    } else {
+                        // Manual generation (existing logic)
+                        $installmentCount = intval($request->installment_count);
+                        if ($installmentCount > 0) {
+                            $baseInstallmentAmount = floor($remainingBalance / $installmentCount);
+                            $remainder = $remainingBalance % $installmentCount;
 
-                        \App\Models\Installment::create([
-                            'client_id' => $client->id,
-                            'property_id' => $property->id,
-                            'installment_number' => $i + 1,
-                            'amount' => $instAmount,
-                            'original_amount' => $instAmount,
-                            'due_date' => $dueDate->format('Y-m-d'),
-                            'status' => 'pending'
-                        ]);
+                            for ($i = 0; $i < $installmentCount; $i++) {
+                                $instAmount = $baseInstallmentAmount;
+                                if ($i === $installmentCount - 1) {
+                                    $instAmount += $remainder;
+                                }
+
+                                $dueDate = clone $startDate;
+                                if ($request->installment_interval === 'monthly') {
+                                    $dueDate->modify("+{$i} month");
+                                } else {
+                                    $intervalMonths = $i * 3;
+                                    $dueDate->modify("+{$intervalMonths} month");
+                                }
+
+                                \App\Models\Installment::create([
+                                    'client_id' => $client->id,
+                                    'property_id' => $property->id,
+                                    'installment_number' => $i + 1,
+                                    'amount' => $instAmount,
+                                    'original_amount' => $instAmount,
+                                    'due_date' => $dueDate->format('Y-m-d'),
+                                    'status' => 'pending'
+                                ]);
+                            }
+                        }
                     }
                 }
             }
 
             \DB::commit();
 
+            // Dispatch notification event
+            \App\Events\ClientCreated::dispatch($client);
+
             if ($receipt) {
                 if ($client->google_drive_folder_id) {
                     \App\Jobs\UploadToDriveJob::dispatch($receipt);
                 } else {
-                    SyncToGoogleSheetJob::dispatch($client);
+                    \App\Services\SyncManager::trigger($client);
                 }
             } else {
-                SyncToGoogleSheetJob::dispatch($client);
+                \App\Services\SyncManager::trigger($client);
             }
 
             return redirect()->route('clients.show', $client->id)
@@ -454,16 +476,14 @@ class ClientController extends Controller
         } catch (\Exception $e) {
             \DB::rollBack();
             \Log::error('Client Onboarding failed: ' . $e->getMessage());
-            return back()->withInput()->with('error', 'Failed to onboard client: ' . $e->getMessage());
+            return back()->withInput()->with('error', 'Failed to onboard client. Please try again.');
         }
     }
 
     public function show($id)
     {
         // Support loading soft-deleted clients to check system history
-        $client = Client::withTrashed()->with(['property', 'payments' => function($q) {
-            $q->latest('payment_date')->latest('id');
-        }, 'receipts' => function($q) {
+        $client = Client::withTrashed()->with(['property.unit', 'payments.creator', 'payments.receipt', 'receipts' => function($q) {
             $q->latest('receipt_date')->latest('id');
         }, 'documents' => function($q) {
             $q->latest('created_at');
@@ -483,7 +503,8 @@ class ClientController extends Controller
     public function edit($id)
     {
         $client = Client::withTrashed()->with('property')->findOrFail($id);
-        return view('clients.edit', compact('client'));
+        $availableUnits = \App\Models\Unit::with('property')->where('status', 'available')->get();
+        return view('clients.edit', compact('client', 'availableUnits'));
     }
 
     public function update(Request $request, $id)
@@ -495,7 +516,7 @@ class ClientController extends Controller
             'full_name' => 'required|string|max:150',
             'father_husband_salutation' => 'required|in:S/O,D/O,W/O',
             'father_husband_name' => 'required|string|max:150',
-            'cnic' => 'required|string|max:15',
+            'cnic' => 'required|string|max:15|unique:clients,cnic,' . $client->id,
             'phone' => 'required|string|max:20',
             'residential_address' => 'required|string',
             'vendor_type' => 'required|in:default,custom',
@@ -510,10 +531,12 @@ class ClientController extends Controller
             'total_deal_value' => 'required|numeric|min:1',
             'agreement_date' => 'required|date',
             'notes' => 'nullable|string',
+            'unit_id' => 'nullable|exists:units,id',
         ]);
 
         $oldClientValues = $client->toArray();
         $oldPropertyValues = $client->property ? $client->property->toArray() : [];
+        $oldUnitId = $client->property ? $client->property->unit_id : null;
 
         \DB::beginTransaction();
         try {
@@ -540,7 +563,35 @@ class ClientController extends Controller
                 'total_deal_value' => $request->total_deal_value,
                 'agreement_date' => $request->agreement_date,
                 'notes' => $request->notes,
+                'unit_id' => $request->unit_id,
             ]);
+
+            $newUnitId = $request->unit_id;
+
+            if ($oldUnitId && $oldUnitId != $newUnitId) {
+                $oldUnit = \App\Models\Unit::where('id', $oldUnitId)->lockForUpdate()->orderBy('id')->first();
+                if ($oldUnit) {
+                    $oldUnit->update(['status' => 'available']);
+                }
+            }
+
+            if ($newUnitId && $newUnitId != $oldUnitId) {
+                $newUnit = \App\Models\Unit::where('id', $newUnitId)
+                    ->where('property_id', $client->property->id) // Ensure unit belongs to property
+                    ->lockForUpdate()
+                    ->orderBy('id')
+                    ->first();
+                
+                if ($newUnit && $newUnit->status === 'available') {
+                    $newUnit->update(['status' => 'booked']);
+                } elseif ($newUnit) {
+                    \DB::rollBack();
+                    return back()->withInput()->with('error', 'Unit ' . $newUnit->unit_number . ' is no longer available. It has been assigned to another client. Please select a different unit.');
+                } else {
+                    \DB::rollBack();
+                    return back()->withInput()->with('error', 'Selected unit is not available or does not belong to this property.');
+                }
+            }
 
             $client->refresh();
             \App\Services\ActivityLogger::logUpdate($client, $oldClientValues);
@@ -550,14 +601,15 @@ class ClientController extends Controller
 
             \DB::commit();
 
-            SyncToGoogleSheetJob::dispatch($client);
+            \App\Services\SyncManager::trigger($client);
 
             return redirect()->route('clients.show', $client->id)
                 ->with('success', 'Client details updated successfully.');
 
         } catch (\Exception $e) {
             \DB::rollBack();
-            return back()->withInput()->with('error', 'Failed to update client: ' . $e->getMessage());
+            \Log::error('Failed to update client: ' . $e->getMessage());
+            return back()->withInput()->with('error', 'Failed to update client. Please try again.');
         }
     }
 
@@ -567,20 +619,27 @@ class ClientController extends Controller
 
         \DB::beginTransaction();
         try {
+            if ($client->property && $client->property->unit_id) {
+                $unit = \App\Models\Unit::where('id', $client->property->unit_id)->lockForUpdate()->first();
+                if ($unit && in_array($unit->status, ['booked', 'reserved'])) {
+                    $unit->update(['status' => 'available']);
+                }
+            }
+
             \App\Services\ActivityLogger::logDelete($client);
             $client->delete();
 
             \DB::commit();
 
-            // We keep the google sheets updated with "deleted" status
             $client->status = 'deleted';
-            SyncToGoogleSheetJob::dispatch($client);
+            \App\Services\SyncManager::trigger($client);
 
             return redirect()->route('clients.index')
                 ->with('success', 'Client deleted successfully (Soft Deleted).');
         } catch (\Exception $e) {
             \DB::rollBack();
-            return back()->with('error', 'Failed to delete client: ' . $e->getMessage());
+            \Log::error('Failed to delete client: ' . $e->getMessage());
+            return back()->with('error', 'Failed to delete client. Please try again.');
         }
     }
 
@@ -590,20 +649,39 @@ class ClientController extends Controller
 
         \DB::beginTransaction();
         try {
+            $restoreMessage = 'Client successfully restored!';
+            $unitConflict = false;
+
+            if ($client->property && $client->property->unit_id) {
+                $unit = \App\Models\Unit::where('id', $client->property->unit_id)->lockForUpdate()->first();
+                if ($unit && $unit->status === 'available') {
+                    $unit->update(['status' => 'booked']);
+                    $restoreMessage = 'Client successfully restored. Unit ' . e($unit->unit_number) . ' has been re-assigned.';
+                } elseif ($unit) {
+                    $unitConflict = true;
+                    $client->property->update(['unit_id' => null]);
+                    $restoreMessage = 'Client restored. Unit ' . e($unit->unit_number) . ' was assigned to another client and has been unlinked. Please assign a new unit.';
+                } else {
+                    $client->property->update(['unit_id' => null]);
+                    $restoreMessage = 'Client restored. Previously assigned unit no longer exists. Please assign a new unit.';
+                }
+            }
+
             $client->restore();
+            $client->status = 'active';
+            $client->save();
             \App\Services\ActivityLogger::logRestore($client);
 
             \DB::commit();
 
-            $client->status = 'active';
-            $client->save();
-            SyncToGoogleSheetJob::dispatch($client);
+            \App\Services\SyncManager::trigger($client);
 
             return redirect()->route('clients.show', $client->id)
-                ->with('success', 'Client successfully restored!');
+                ->with($unitConflict ? 'warning' : 'success', $restoreMessage);
         } catch (\Exception $e) {
             \DB::rollBack();
-            return back()->with('error', 'Failed to restore client: ' . $e->getMessage());
+            \Log::error('Failed to restore client: ' . $e->getMessage());
+            return back()->with('error', 'Failed to restore client. Please try again.');
         }
     }
 
@@ -647,14 +725,14 @@ class ClientController extends Controller
             // Refresh client for sync
             $client = Client::withTrashed()->find($log->client_id);
             if ($client) {
-                SyncToGoogleSheetJob::dispatch($client);
+                \App\Services\SyncManager::trigger($client);
             }
 
             return back()->with('success', 'Successfully rolled back to the selected historical version!');
         } catch (\Exception $e) {
             \DB::rollBack();
             \Log::error('Rollback failed: ' . $e->getMessage());
-            return back()->with('error', 'Failed to roll back: ' . $e->getMessage());
+            return back()->with('error', 'Failed to roll back. Please try again.');
         }
     }
 
@@ -729,7 +807,7 @@ class ClientController extends Controller
         } catch (\Exception $e) {
             \DB::rollBack();
             \Log::error('Restructuring installments failed: ' . $e->getMessage());
-            return back()->with('error', 'Failed to generate installment plan: ' . $e->getMessage());
+            return back()->with('error', 'Failed to generate installment plan. Please try again.');
         }
     }
 
@@ -745,7 +823,8 @@ class ClientController extends Controller
                 ->with('success', 'All pending installments cleared successfully.');
         } catch (\Exception $e) {
             \DB::rollBack();
-            return back()->with('error', 'Failed to clear installments: ' . $e->getMessage());
+            \Log::error('Failed to clear installments: ' . $e->getMessage());
+            return back()->with('error', 'Failed to clear installments. Please try again.');
         }
     }
 
@@ -762,8 +841,24 @@ class ClientController extends Controller
                 ->with('success', 'Installment deleted successfully.');
         } catch (\Exception $e) {
             \DB::rollBack();
-            return back()->with('error', 'Failed to delete installment: ' . $e->getMessage());
+            \Log::error('Failed to delete installment: ' . $e->getMessage());
+            return back()->with('error', 'Failed to delete installment. Please try again.');
         }
+    }
+
+    public function updateLateFee(Request $request, $clientId, $installmentId)
+    {
+        $request->validate([
+            'late_fee_amount' => 'required|numeric|min:0',
+        ]);
+
+        $client = Client::findOrFail($clientId);
+        $installment = $client->installments()->findOrFail($installmentId);
+
+        $installment->update(['late_fee_amount' => $request->late_fee_amount]);
+
+        return redirect()->route('clients.show', $client->id)
+            ->with('success', 'Late fee updated successfully.');
     }
 
     public function lookupByCnic($cnic)
@@ -803,6 +898,26 @@ class ClientController extends Controller
         // Increment attempt counter even for not found (to prevent enumeration)
         cache()->put($throttleKey, $attempts + 1, now()->addMinutes(15));
         return response()->json(['found' => false]);
+    }
+
+    public function bulkDestroy(Request $request)
+    {
+        $request->validate([
+            'ids' => 'required|array|min:1',
+            'ids.*' => 'exists:clients,id',
+        ]);
+
+        $count = 0;
+        foreach ($request->ids as $id) {
+            $client = Client::withTrashed()->find($id);
+            if ($client && !$client->trashed()) {
+                $this->destroy($id);
+                $count++;
+            }
+        }
+
+        return redirect()->route('clients.index')
+            ->with('success', "{$count} client(s) deleted successfully.");
     }
 }
 

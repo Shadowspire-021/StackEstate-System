@@ -49,18 +49,18 @@
                 </div>
                 
                 <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
-                    <!-- Date Range Start -->
+                    <!-- Name Search -->
                     <div>
-                        <label class="block text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">Start Date</label>
-                        <input type="date" id="start_date" class="w-full rounded-xl border-gray-200 focus:border-indigo-500 focus:ring-indigo-500 text-xs font-semibold text-gray-700 py-2">
+                        <label class="block text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">Client Name</label>
+                        <input type="text" id="filter_name" placeholder="e.g. Ahmed Khan" class="w-full rounded-xl border-gray-200 focus:border-indigo-500 focus:ring-indigo-500 text-xs font-semibold text-gray-700 py-2">
                     </div>
-                    
-                    <!-- Date Range End -->
+
+                    <!-- Phone Search -->
                     <div>
-                        <label class="block text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">End Date</label>
-                        <input type="date" id="end_date" class="w-full rounded-xl border-gray-200 focus:border-indigo-500 focus:ring-indigo-500 text-xs font-semibold text-gray-700 py-2">
+                        <label class="block text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">Phone Number</label>
+                        <input type="text" id="filter_phone" placeholder="e.g. 0300-xxxx" class="w-full rounded-xl border-gray-200 focus:border-indigo-500 focus:ring-indigo-500 text-xs font-semibold text-gray-700 py-2">
                     </div>
-                    
+
                     <!-- CNIC Filter -->
                     <div>
                         <label class="block text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">CNIC</label>
@@ -79,6 +79,26 @@
                         <input type="text" id="filter_block" placeholder="e.g. Block A" class="w-full rounded-xl border-gray-200 focus:border-indigo-500 focus:ring-indigo-500 text-xs font-semibold text-gray-700 py-2">
                     </div>
                     
+                    <!-- Unit Number -->
+                    <div>
+                        <label class="block text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">Unit Number</label>
+                        <input type="text" id="filter_unit" placeholder="e.g. Flat 101" class="w-full rounded-xl border-gray-200 focus:border-indigo-500 focus:ring-indigo-500 text-xs font-semibold text-gray-700 py-2">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+                    <!-- Date Range Start -->
+                    <div>
+                        <label class="block text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">Start Date</label>
+                        <input type="date" id="start_date" class="w-full rounded-xl border-gray-200 focus:border-indigo-500 focus:ring-indigo-500 text-xs font-semibold text-gray-700 py-2">
+                    </div>
+
+                    <!-- Date Range End -->
+                    <div>
+                        <label class="block text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">End Date</label>
+                        <input type="date" id="end_date" class="w-full rounded-xl border-gray-200 focus:border-indigo-500 focus:ring-indigo-500 text-xs font-semibold text-gray-700 py-2">
+                    </div>
+
                     <!-- Dues Percentage -->
                     <div>
                         <label class="block text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">Dues Level</label>
@@ -105,6 +125,7 @@
                             <th>Phone</th>
                             <th>Prop Type</th>
                             <th>Plot / Block</th>
+                            <th>Unit</th>
                             <th>Deal Value</th>
                             <th>Balance</th>
                             <th>Status</th>
@@ -239,9 +260,12 @@
                         data: function (d) {
                             d.start_date = $('#start_date').val();
                             d.end_date = $('#end_date').val();
+                            d.filter_name = $('#filter_name').val();
+                            d.filter_phone = $('#filter_phone').val();
                             d.filter_cnic = $('#filter_cnic').val();
                             d.filter_plot = $('#filter_plot').val();
                             d.filter_block = $('#filter_block').val();
+                            d.filter_unit = $('#filter_unit').val();
                             d.filter_dues = $('#filter_dues').val();
                         }
                     },
@@ -252,6 +276,7 @@
                         { data: 'phone', name: 'phone', className: 'text-gray-500' },
                         { data: 'property_type', name: 'property_type', className: 'text-gray-500' },
                         { data: 'plot_number', name: 'plot_number', className: 'text-gray-500' },
+                        { data: 'unit_number', name: 'unit_number', orderable: false, searchable: false },
                         { data: 'total_deal_value', name: 'total_deal_value', className: 'font-semibold text-indigo-600' },
                         { data: 'remaining_balance', name: 'remaining_balance' },
                         { data: 'status_badge', name: 'status_badge' },
@@ -270,13 +295,17 @@
                 });
 
                 // Trigger reload on filter inputs change
-                $('#start_date, #end_date, #filter_cnic, #filter_plot, #filter_block, #filter_dues').on('change keyup', function () {
+                $('#filter_name, #filter_phone, #filter_cnic, #filter_plot, #filter_block, #filter_unit').on('keyup input', function () {
+                    table.draw();
+                });
+
+                $('#start_date, #end_date, #filter_dues').on('change', function () {
                     table.draw();
                 });
 
                 // Reset all filters button logic
                 $('#reset-filters').on('click', function () {
-                    $('#start_date, #end_date, #filter_cnic, #filter_plot, #filter_block, #filter_dues').val('');
+                    $('#start_date, #end_date, #filter_name, #filter_phone, #filter_cnic, #filter_plot, #filter_block, #filter_unit, #filter_dues').val('');
                     table.draw();
                 });
                 // Toggle filtration panel slide

@@ -1,0 +1,684 @@
+{
+    "backup_info": {
+        "created_at": "2026-06-14T00:02:58.865565Z",
+        "database": "stackestate",
+        "tables": 23,
+        "laravel_version": "10.50.2"
+    },
+    "tables": {
+        "activity_logs": {
+            "columns": [
+                "id",
+                "user_id",
+                "client_id",
+                "action",
+                "loggable_type",
+                "loggable_id",
+                "old_values",
+                "new_values",
+                "created_at",
+                "updated_at"
+            ],
+            "rows": [],
+            "count": 0
+        },
+        "clients": {
+            "columns": [
+                "id",
+                "client_id",
+                "salutation",
+                "full_name",
+                "father_husband_salutation",
+                "father_husband_name",
+                "cnic",
+                "phone",
+                "residential_address",
+                "google_drive_folder_id",
+                "google_sheet_row",
+                "status",
+                "vendor_type",
+                "vendor_name",
+                "vendor_cnic",
+                "created_by",
+                "created_at",
+                "updated_at",
+                "deleted_at"
+            ],
+            "rows": [],
+            "count": 0
+        },
+        "documents": {
+            "columns": [
+                "id",
+                "client_id",
+                "document_type",
+                "original_filename",
+                "google_drive_file_id",
+                "google_drive_file_url",
+                "google_drive_folder_id",
+                "uploaded_by",
+                "version_number",
+                "parent_document_id",
+                "created_at",
+                "updated_at"
+            ],
+            "rows": [],
+            "count": 0
+        },
+        "failed_jobs": {
+            "columns": [
+                "id",
+                "uuid",
+                "connection",
+                "queue",
+                "payload",
+                "exception",
+                "failed_at"
+            ],
+            "rows": [],
+            "count": 0
+        },
+        "installment_plan_templates": {
+            "columns": [
+                "id",
+                "name",
+                "description",
+                "type",
+                "duration_months",
+                "config",
+                "created_at",
+                "updated_at"
+            ],
+            "rows": [],
+            "count": 0
+        },
+        "installments": {
+            "columns": [
+                "id",
+                "client_id",
+                "property_id",
+                "installment_number",
+                "amount",
+                "original_amount",
+                "late_fee_amount",
+                "late_fee_applied_at",
+                "due_date",
+                "status",
+                "created_at",
+                "updated_at"
+            ],
+            "rows": [],
+            "count": 0
+        },
+        "invoices": {
+            "columns": [
+                "id",
+                "client_id",
+                "installment_id",
+                "invoice_number",
+                "amount",
+                "late_fee",
+                "total_amount",
+                "status",
+                "issued_at",
+                "paid_at",
+                "created_at",
+                "updated_at"
+            ],
+            "rows": [],
+            "count": 0
+        },
+        "jobs": {
+            "columns": [
+                "id",
+                "queue",
+                "payload",
+                "attempts",
+                "reserved_at",
+                "available_at",
+                "created_at"
+            ],
+            "rows": [
+                {
+                    "id": 2,
+                    "queue": "default",
+                    "payload": "{\"uuid\":\"205b0e16-228a-406e-9684-6dfe67b3e322\",\"displayName\":\"App\\\\Jobs\\\\BackupJob\",\"job\":\"Illuminate\\\\Queue\\\\CallQueuedHandler@call\",\"maxTries\":3,\"maxExceptions\":null,\"failOnTimeout\":false,\"backoff\":\"60\",\"timeout\":null,\"retryUntil\":null,\"data\":{\"commandName\":\"App\\\\Jobs\\\\BackupJob\",\"command\":\"O:18:\\\"App\\\\Jobs\\\\BackupJob\\\":1:{s:5:\\\"queue\\\";s:7:\\\"default\\\";}\"}}",
+                    "attempts": 1,
+                    "reserved_at": 1781395378,
+                    "available_at": 1781395365,
+                    "created_at": 1781395365
+                }
+            ],
+            "count": 1
+        },
+        "migrations": {
+            "columns": [
+                "id",
+                "migration",
+                "batch"
+            ],
+            "rows": [
+                {
+                    "id": 1,
+                    "migration": "2014_10_12_000000_create_users_table",
+                    "batch": 1
+                },
+                {
+                    "id": 2,
+                    "migration": "2014_10_12_100000_create_password_reset_tokens_table",
+                    "batch": 1
+                },
+                {
+                    "id": 3,
+                    "migration": "2019_08_19_000000_create_failed_jobs_table",
+                    "batch": 1
+                },
+                {
+                    "id": 4,
+                    "migration": "2019_12_14_000001_create_personal_access_tokens_table",
+                    "batch": 1
+                },
+                {
+                    "id": 5,
+                    "migration": "2026_05_18_071440_create_clients_table",
+                    "batch": 1
+                },
+                {
+                    "id": 6,
+                    "migration": "2026_05_18_071447_create_properties_table",
+                    "batch": 1
+                },
+                {
+                    "id": 7,
+                    "migration": "2026_05_18_071448_create_payments_table",
+                    "batch": 1
+                },
+                {
+                    "id": 8,
+                    "migration": "2026_05_18_071449_create_documents_table",
+                    "batch": 1
+                },
+                {
+                    "id": 9,
+                    "migration": "2026_05_18_071449_create_receipts_table",
+                    "batch": 1
+                },
+                {
+                    "id": 10,
+                    "migration": "2026_05_18_071450_create_settings_table",
+                    "batch": 1
+                },
+                {
+                    "id": 11,
+                    "migration": "2026_05_18_072216_create_permission_tables",
+                    "batch": 1
+                },
+                {
+                    "id": 12,
+                    "migration": "2026_05_18_072554_create_jobs_table",
+                    "batch": 1
+                },
+                {
+                    "id": 13,
+                    "migration": "2026_05_18_080500_create_activity_logs_and_add_soft_deletes",
+                    "batch": 1
+                },
+                {
+                    "id": 14,
+                    "migration": "2026_05_20_000000_add_vendor_fields_to_clients_table",
+                    "batch": 1
+                },
+                {
+                    "id": 15,
+                    "migration": "2026_05_20_110000_create_installments_table",
+                    "batch": 1
+                },
+                {
+                    "id": 16,
+                    "migration": "2026_05_21_000000_remove_unique_constraint_from_cnic_on_clients_table",
+                    "batch": 1
+                },
+                {
+                    "id": 17,
+                    "migration": "2026_05_21_010000_change_payment_method_column_in_payments_table",
+                    "batch": 1
+                },
+                {
+                    "id": 18,
+                    "migration": "2026_06_02_205302_add_original_amount_to_installments_table",
+                    "batch": 1
+                },
+                {
+                    "id": 19,
+                    "migration": "2026_06_13_132054_create_units_table",
+                    "batch": 2
+                },
+                {
+                    "id": 20,
+                    "migration": "2026_06_13_133549_add_unit_id_to_properties_table",
+                    "batch": 3
+                },
+                {
+                    "id": 21,
+                    "migration": "2026_06_13_000000_add_versioning_to_documents_table",
+                    "batch": 4
+                },
+                {
+                    "id": 22,
+                    "migration": "2026_06_14_000000_create_notifications_table",
+                    "batch": 5
+                },
+                {
+                    "id": 23,
+                    "migration": "2026_06_14_010000_add_group_to_settings_table",
+                    "batch": 6
+                },
+                {
+                    "id": 24,
+                    "migration": "2026_06_14_020000_add_late_fee_to_installments_table",
+                    "batch": 7
+                },
+                {
+                    "id": 25,
+                    "migration": "2026_06_14_030000_create_installment_plan_templates_table",
+                    "batch": 8
+                },
+                {
+                    "id": 26,
+                    "migration": "2026_06_14_040000_add_template_id_to_properties_table",
+                    "batch": 9
+                },
+                {
+                    "id": 27,
+                    "migration": "2026_06_14_050000_create_invoices_table",
+                    "batch": 10
+                }
+            ],
+            "count": 27
+        },
+        "model_has_permissions": {
+            "columns": [
+                "permission_id",
+                "model_type",
+                "model_id"
+            ],
+            "rows": [],
+            "count": 0
+        },
+        "model_has_roles": {
+            "columns": [
+                "role_id",
+                "model_type",
+                "model_id"
+            ],
+            "rows": [
+                {
+                    "role_id": 1,
+                    "model_type": "App\\Models\\User",
+                    "model_id": 1
+                }
+            ],
+            "count": 1
+        },
+        "notifications": {
+            "columns": [
+                "id",
+                "type",
+                "notifiable_type",
+                "notifiable_id",
+                "data",
+                "read_at",
+                "created_at",
+                "updated_at"
+            ],
+            "rows": [],
+            "count": 0
+        },
+        "password_reset_tokens": {
+            "columns": [
+                "email",
+                "token",
+                "created_at"
+            ],
+            "rows": [],
+            "count": 0
+        },
+        "payments": {
+            "columns": [
+                "id",
+                "client_id",
+                "property_id",
+                "installment_id",
+                "payment_number",
+                "amount",
+                "payment_method",
+                "particulars",
+                "bank_name",
+                "cheque_number",
+                "payment_date",
+                "receipt_id",
+                "synced_to_sheet",
+                "created_by",
+                "created_at",
+                "updated_at"
+            ],
+            "rows": [],
+            "count": 0
+        },
+        "permissions": {
+            "columns": [
+                "id",
+                "name",
+                "guard_name",
+                "created_at",
+                "updated_at"
+            ],
+            "rows": [
+                {
+                    "id": 1,
+                    "name": "manage clients",
+                    "guard_name": "web",
+                    "created_at": "2026-06-13 16:26:14",
+                    "updated_at": "2026-06-13 16:26:14"
+                },
+                {
+                    "id": 2,
+                    "name": "delete clients",
+                    "guard_name": "web",
+                    "created_at": "2026-06-13 16:26:14",
+                    "updated_at": "2026-06-13 16:26:14"
+                },
+                {
+                    "id": 3,
+                    "name": "manage payments",
+                    "guard_name": "web",
+                    "created_at": "2026-06-13 16:26:14",
+                    "updated_at": "2026-06-13 16:26:14"
+                },
+                {
+                    "id": 4,
+                    "name": "delete payments",
+                    "guard_name": "web",
+                    "created_at": "2026-06-13 16:26:14",
+                    "updated_at": "2026-06-13 16:26:14"
+                },
+                {
+                    "id": 5,
+                    "name": "manage installments",
+                    "guard_name": "web",
+                    "created_at": "2026-06-13 16:26:14",
+                    "updated_at": "2026-06-13 16:26:14"
+                },
+                {
+                    "id": 6,
+                    "name": "delete installments",
+                    "guard_name": "web",
+                    "created_at": "2026-06-13 16:26:14",
+                    "updated_at": "2026-06-13 16:26:14"
+                },
+                {
+                    "id": 7,
+                    "name": "manage settings",
+                    "guard_name": "web",
+                    "created_at": "2026-06-13 16:26:14",
+                    "updated_at": "2026-06-13 16:26:14"
+                },
+                {
+                    "id": 8,
+                    "name": "manage users",
+                    "guard_name": "web",
+                    "created_at": "2026-06-13 16:26:14",
+                    "updated_at": "2026-06-13 16:26:14"
+                },
+                {
+                    "id": 9,
+                    "name": "view dashboard",
+                    "guard_name": "web",
+                    "created_at": "2026-06-13 16:26:14",
+                    "updated_at": "2026-06-13 16:26:14"
+                }
+            ],
+            "count": 9
+        },
+        "personal_access_tokens": {
+            "columns": [
+                "id",
+                "tokenable_type",
+                "tokenable_id",
+                "name",
+                "token",
+                "abilities",
+                "last_used_at",
+                "expires_at",
+                "created_at",
+                "updated_at"
+            ],
+            "rows": [],
+            "count": 0
+        },
+        "properties": {
+            "columns": [
+                "id",
+                "client_id",
+                "template_id",
+                "unit_id",
+                "property_type",
+                "plot_number",
+                "block_name",
+                "location",
+                "size_sqyards",
+                "total_deal_value",
+                "agreement_date",
+                "notes",
+                "created_at",
+                "updated_at"
+            ],
+            "rows": [],
+            "count": 0
+        },
+        "receipts": {
+            "columns": [
+                "id",
+                "receipt_number",
+                "client_id",
+                "property_id",
+                "total_amount_this_receipt",
+                "total_received_to_date",
+                "remaining_balance",
+                "receipt_date",
+                "docx_filename",
+                "google_drive_file_id",
+                "google_drive_file_url",
+                "generated_by",
+                "created_at",
+                "updated_at"
+            ],
+            "rows": [],
+            "count": 0
+        },
+        "role_has_permissions": {
+            "columns": [
+                "permission_id",
+                "role_id"
+            ],
+            "rows": [
+                {
+                    "permission_id": 1,
+                    "role_id": 1
+                },
+                {
+                    "permission_id": 1,
+                    "role_id": 2
+                },
+                {
+                    "permission_id": 2,
+                    "role_id": 1
+                },
+                {
+                    "permission_id": 3,
+                    "role_id": 1
+                },
+                {
+                    "permission_id": 3,
+                    "role_id": 2
+                },
+                {
+                    "permission_id": 4,
+                    "role_id": 1
+                },
+                {
+                    "permission_id": 5,
+                    "role_id": 1
+                },
+                {
+                    "permission_id": 5,
+                    "role_id": 2
+                },
+                {
+                    "permission_id": 6,
+                    "role_id": 1
+                },
+                {
+                    "permission_id": 7,
+                    "role_id": 1
+                },
+                {
+                    "permission_id": 8,
+                    "role_id": 1
+                },
+                {
+                    "permission_id": 9,
+                    "role_id": 1
+                },
+                {
+                    "permission_id": 9,
+                    "role_id": 2
+                }
+            ],
+            "count": 13
+        },
+        "roles": {
+            "columns": [
+                "id",
+                "name",
+                "guard_name",
+                "created_at",
+                "updated_at"
+            ],
+            "rows": [
+                {
+                    "id": 1,
+                    "name": "super_admin",
+                    "guard_name": "web",
+                    "created_at": "2026-06-13 09:54:30",
+                    "updated_at": "2026-06-13 09:54:30"
+                },
+                {
+                    "id": 2,
+                    "name": "staff",
+                    "guard_name": "web",
+                    "created_at": "2026-06-13 09:54:30",
+                    "updated_at": "2026-06-13 09:54:30"
+                }
+            ],
+            "count": 2
+        },
+        "settings": {
+            "columns": [
+                "id",
+                "key",
+                "group",
+                "value",
+                "created_at",
+                "updated_at"
+            ],
+            "rows": [
+                {
+                    "id": 1,
+                    "key": "company_name",
+                    "group": "company",
+                    "value": "StackEstate",
+                    "created_at": null,
+                    "updated_at": "2026-06-13 16:34:34"
+                },
+                {
+                    "id": 2,
+                    "key": "company_address",
+                    "group": "company",
+                    "value": "This is the Testing Address",
+                    "created_at": null,
+                    "updated_at": "2026-06-13 16:34:34"
+                },
+                {
+                    "id": 3,
+                    "key": "vendor_name",
+                    "group": "company",
+                    "value": "Kashif",
+                    "created_at": null,
+                    "updated_at": "2026-06-13 16:34:34"
+                },
+                {
+                    "id": 4,
+                    "key": "vendor_cnic",
+                    "group": "company",
+                    "value": "00000000000",
+                    "created_at": null,
+                    "updated_at": "2026-06-13 16:34:34"
+                },
+                {
+                    "id": 5,
+                    "key": "notification_enabled",
+                    "group": "notifications",
+                    "value": "1",
+                    "created_at": "2026-06-13 19:02:31",
+                    "updated_at": "2026-06-13 19:02:31"
+                }
+            ],
+            "count": 5
+        },
+        "units": {
+            "columns": [
+                "id",
+                "property_id",
+                "unit_number",
+                "floor_number",
+                "size",
+                "price",
+                "status",
+                "created_at",
+                "updated_at"
+            ],
+            "rows": [],
+            "count": 0
+        },
+        "users": {
+            "columns": [
+                "id",
+                "name",
+                "email",
+                "email_verified_at",
+                "password",
+                "role",
+                "is_active",
+                "remember_token",
+                "created_at",
+                "updated_at"
+            ],
+            "rows": [
+                {
+                    "id": 1,
+                    "name": "Ahsan Ali Hashmi",
+                    "email": "admin@admin.com",
+                    "email_verified_at": null,
+                    "password": "$2y$12$yUXGkaZuH4SBFDBMJg2.UuFaSo7lq0.t\/mXNf6j4vd2JsHLeqnmtS",
+                    "role": "super_admin",
+                    "is_active": 1,
+                    "remember_token": "kCl8q4bV1imYUauA5EYsCneM1jmuvzTtKA6tHTI5tMJBPjcd9is4doyYe4Ca",
+                    "created_at": "2026-06-13 09:54:30",
+                    "updated_at": "2026-06-13 16:29:55"
+                }
+            ],
+            "count": 1
+        }
+    }
+}

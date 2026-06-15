@@ -4,6 +4,7 @@ namespace App\Console;
 
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Console\Kernel as ConsoleKernel;
+use App\Jobs\BackupJob;
 
 class Kernel extends ConsoleKernel
 {
@@ -12,7 +13,17 @@ class Kernel extends ConsoleKernel
      */
     protected function schedule(Schedule $schedule): void
     {
-        // $schedule->command('inspire')->hourly();
+        // Daily database backup at 2:00 AM
+        $schedule->job(new BackupJob)->dailyAt('02:00')->withoutOverlapping();
+
+        // Check for overdue installments daily at 8:00 AM
+        $schedule->command('installments:check-overdue')->dailyAt('08:00');
+
+        // Apply late fees to overdue installments daily at 8:30 AM
+        $schedule->command('installments:apply-late-fees')->dailyAt('08:30');
+
+        // Check for upcoming due installments and send reminders daily at 9:00 AM
+        $schedule->command('installments:check-upcoming-due')->dailyAt('09:00');
     }
 
     /**

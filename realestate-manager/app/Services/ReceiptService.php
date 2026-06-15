@@ -15,10 +15,10 @@ class ReceiptService
         \PhpOffice\PhpWord\Settings::setOutputEscapingEnabled(true);
         $phpWord = new PhpWord();
         
-        $companyName = Setting::where('key', 'company_name')->value('value') ?? 'YM BUILDERS & DEVELOPERS';
-        $companyAddress = Setting::where('key', 'company_address')->value('value') ?? 'Karachi, Pakistan';
-        $vendorName = Setting::where('key', 'vendor_name')->value('value') ?? 'Mr. Muhammad Haroon';
-        $vendorCnic = Setting::where('key', 'vendor_cnic')->value('value') ?? '42101-5353574-5';
+        $companyName = Setting::getValue('company_name', 'Builder/Developer');
+        $companyAddress = Setting::getValue('company_address', 'City, Country');
+        $vendorName = Setting::getValue('vendor_name', 'Vendor Name');
+        $vendorCnic = Setting::getValue('vendor_cnic', '00000-0000000-0');
         
         $client = $receipt->client;
         $property = $receipt->property;

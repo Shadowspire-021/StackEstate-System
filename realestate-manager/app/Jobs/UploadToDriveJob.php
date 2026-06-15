@@ -59,7 +59,7 @@ class UploadToDriveJob implements ShouldQueue
                 unlink($tempPath);
             }
             
-            SyncToGoogleSheetJob::dispatch($client);
+            \App\Services\SyncManager::trigger($client);
         }
     }
 }

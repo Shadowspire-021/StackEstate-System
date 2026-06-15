@@ -58,6 +58,17 @@ class UserController extends Controller
             'is_active' => ['boolean']
         ]);
 
+        if ($user->id !== auth()->id()) {
+            $authRole = auth()->user()->role;
+            $targetRole = $user->role;
+            $hierarchy = ['accountant' => 1, 'staff' => 2, 'admin' => 3, 'super_admin' => 4];
+            $authLevel = $hierarchy[$authRole] ?? 0;
+            $targetLevel = $hierarchy[$targetRole] ?? 0;
+            if ($authLevel <= $targetLevel) {
+                return back()->with('error', 'You are not authorized to modify this user.');
+            }
+        }
+
         $user->name = $request->name;
         $user->email = $request->email;
         $user->role = $request->role;
@@ -80,6 +91,23 @@ class UserController extends Controller
     {
         if ($user->id === auth()->id()) {
             return back()->with('error', 'You cannot delete your own account.');
+        }
+
+        $authRole = auth()->user()->role;
+        $targetRole = $user->role;
+
+        $hierarchy = [
+            'accountant' => 1,
+            'staff' => 2,
+            'admin' => 3,
+            'super_admin' => 4,
+        ];
+
+        $authLevel = $hierarchy[$authRole] ?? 0;
+        $targetLevel = $hierarchy[$targetRole] ?? 0;
+
+        if ($authLevel <= $targetLevel) {
+            return back()->with('error', 'You are not authorized to delete this user.');
         }
 
         $user->delete();

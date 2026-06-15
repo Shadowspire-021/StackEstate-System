@@ -48,31 +48,57 @@
                 </div>
             @endif
 
-            <!-- Deal Totals Cards -->
+            <!-- Financial Summary Cards -->
             @php
-                $dealValue = $client->property ? $client->property->total_deal_value : 0;
-                $totalPaid = $client->payments->sum('amount');
-                $remainingBalance = $dealValue - $totalPaid;
-                $pctPaid = $dealValue > 0 ? round(($totalPaid / $dealValue) * 100) : 0;
+                $dealValue = $client->deal_value;
+                $totalPaid = $client->total_paid;
+                $remainingBalance = $client->remaining_balance;
+                $pctPaid = $client->payment_percentage;
+                $paymentStatus = $client->payment_status;
+                $overdueCount = $client->overdue_installments_count;
+                $overdueAmount = $client->overdue_amount;
             @endphp
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <!-- Deal Value -->
-                <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 space-y-2">
-                    <span class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Total Deal Value</span>
-                    <div class="text-2xl font-black text-gray-800">Rs. {{ number_format($dealValue) }}</div>
+                <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 space-y-2">
+                    <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Deal Value</span>
+                    <div class="text-xl font-black text-gray-800">Rs. {{ number_format($dealValue) }}</div>
                 </div>
                 <!-- Total Received -->
-                <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 space-y-2">
+                <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 space-y-2">
                     <div class="flex justify-between items-center">
-                        <span class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Total Paid</span>
-                        <span class="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md">{{ $pctPaid }}%</span>
+                        <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Received</span>
+                        <span class="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">{{ $pctPaid }}%</span>
                     </div>
-                    <div class="text-2xl font-black text-emerald-600">Rs. {{ number_format($totalPaid) }}</div>
+                    <div class="text-xl font-black text-emerald-600">Rs. {{ number_format($totalPaid) }}</div>
                 </div>
                 <!-- Remaining Balance -->
-                <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 space-y-2">
-                    <span class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Remaining Balance</span>
-                    <div class="text-2xl font-black text-rose-600">Rs. {{ number_format($remainingBalance) }}</div>
+                <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 space-y-2">
+                    <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Balance Due</span>
+                    <div class="text-xl font-black {{ $remainingBalance > 0 ? 'text-rose-600' : 'text-emerald-600' }}">Rs. {{ number_format($remainingBalance) }}</div>
+                </div>
+                <!-- Payment Status -->
+                <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 space-y-2">
+                    <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Status</span>
+                    <div class="pt-1">{!! $client->payment_status_badge !!}</div>
+                    @if($overdueCount > 0)
+                        <div class="text-[10px] font-bold text-rose-600">{{ $overdueCount }} overdue (Rs. {{ number_format($overdueAmount) }})</div>
+                    @endif
+                </div>
+            </div>
+
+            <!-- Payment Progress Bar -->
+            <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
+                <div class="flex justify-between items-center mb-2">
+                    <span class="text-xs font-bold text-gray-500 uppercase tracking-wider">Payment Progress</span>
+                    <span class="text-xs font-bold text-gray-800">{{ $pctPaid }}%</span>
+                </div>
+                <div class="w-full bg-gray-100 rounded-full h-2.5 overflow-hidden">
+                    <div class="h-full rounded-full transition-all duration-500 {{ $pctPaid >= 100 ? 'bg-emerald-500' : ($pctPaid >= 50 ? 'bg-blue-500' : 'bg-amber-500') }}" style="width: {{ min($pctPaid, 100) }}%"></div>
+                </div>
+                <div class="flex justify-between mt-2 text-[10px] font-bold text-gray-400">
+                    <span>Rs. {{ number_format($totalPaid) }} paid</span>
+                    <span>Rs. {{ number_format($remainingBalance) }} remaining</span>
                 </div>
             </div>
 
@@ -140,7 +166,7 @@
                                 </div>
                                 <div class="grid grid-cols-2 gap-4">
                                     <div>
-                                        <span class="block text-xs font-semibold text-gray-400 uppercase tracking-wider">Unit / Plot #</span>
+                                        <span class="block text-xs font-semibold text-gray-400 uppercase tracking-wider">Plot Number</span>
                                         <span class="font-semibold text-gray-800">{{ $client->property->plot_number }}</span>
                                     </div>
                                     <div>
@@ -148,6 +174,36 @@
                                         <span class="font-semibold text-gray-800">{{ $client->property->block_name }}</span>
                                     </div>
                                 </div>
+
+                                @if($client->property->unit_id && $client->unit)
+                                    <div class="bg-gray-50 rounded-xl p-4 border border-gray-100 space-y-2">
+                                        <span class="block text-xs font-bold text-indigo-500 uppercase tracking-wider">Assigned Unit</span>
+                                        <div class="grid grid-cols-3 gap-4">
+                                            <div>
+                                                <span class="block text-xs font-semibold text-gray-400 uppercase tracking-wider">Unit Number</span>
+                                                <span class="font-semibold text-gray-800">{{ $client->unit->unit_number }}</span>
+                                            </div>
+                                            <div>
+                                                <span class="block text-xs font-semibold text-gray-400 uppercase tracking-wider">Floor</span>
+                                                <span class="font-semibold text-gray-800">{{ $client->unit->floor_number ?? 'N/A' }}</span>
+                                            </div>
+                                            <div>
+                                                <span class="block text-xs font-semibold text-gray-400 uppercase tracking-wider">Status</span>
+                                                @php
+                                                    $statusColors = [
+                                                        'available' => 'bg-emerald-100 text-emerald-700',
+                                                        'booked' => 'bg-amber-100 text-amber-700',
+                                                        'sold' => 'bg-blue-100 text-blue-700',
+                                                        'reserved' => 'bg-purple-100 text-purple-700',
+                                                    ];
+                                                    $colorClass = $statusColors[$client->unit->status] ?? 'bg-gray-100 text-gray-700';
+                                                @endphp
+                                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold {{ $colorClass }}">{{ ucfirst($client->unit->status) }}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                @endif
+
                                 <div>
                                     <span class="block text-xs font-semibold text-gray-400 uppercase tracking-wider">Location</span>
                                     <span class="font-semibold text-gray-800">{{ $client->property->location }}</span>
@@ -179,6 +235,78 @@
                 <div class="lg:col-span-2 space-y-8">
                     <!-- Installment Schedule -->
                     <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 space-y-6">
+                        @php
+                            $totalInstallments = $client->installments->count();
+                            $paidInstallments = $client->installments->where('status', 'paid')->count();
+                            $pendingInstallments = $client->installments->where('status', 'pending')->count();
+                            $overdueInstallments = $client->installments->where('status', 'pending')->filter(function($inst) {
+                                return $inst->due_date->isPast();
+                            })->count();
+                            $totalScheduledAmount = $client->installments->sum(function($inst) {
+                                return $inst->original_amount ?? $inst->amount;
+                            });
+                            $totalPaidInstallmentAmount = $client->installments->where('status', 'paid')->sum(function($inst) {
+                                return $inst->original_amount ?? $inst->amount;
+                            });
+                            $installmentProgress = $totalScheduledAmount > 0 ? round(($totalPaidInstallmentAmount / $totalScheduledAmount) * 100, 1) : 0;
+                        @endphp
+
+                        <!-- Installment Summary Widgets -->
+                        @if($totalInstallments > 0)
+                            <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                <div class="bg-gray-50 rounded-xl p-3 text-center">
+                                    <div class="text-lg font-black text-gray-800">{{ $totalInstallments }}</div>
+                                    <div class="text-[9px] font-bold text-gray-400 uppercase tracking-wider">Total</div>
+                                </div>
+                                <div class="bg-emerald-50 rounded-xl p-3 text-center">
+                                    <div class="text-lg font-black text-emerald-600">{{ $paidInstallments }}</div>
+                                    <div class="text-[9px] font-bold text-emerald-600 uppercase tracking-wider">Paid</div>
+                                </div>
+                                <div class="bg-amber-50 rounded-xl p-3 text-center">
+                                    <div class="text-lg font-black text-amber-600">{{ $pendingInstallments }}</div>
+                                    <div class="text-[9px] font-bold text-amber-600 uppercase tracking-wider">Pending</div>
+                                </div>
+                                <div class="bg-rose-50 rounded-xl p-3 text-center">
+                                    <div class="text-lg font-black text-rose-600">{{ $overdueInstallments }}</div>
+                                    <div class="text-[9px] font-bold text-rose-600 uppercase tracking-wider">Overdue</div>
+                                </div>
+                            </div>
+                            <!-- Installment Progress Bar -->
+                            <div>
+                                <div class="flex justify-between items-center mb-1.5">
+                                    <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Installment Progress</span>
+                                    <span class="text-[10px] font-bold text-gray-800">{{ $installmentProgress }}%</span>
+                                </div>
+                                <div class="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
+                                    <div class="h-full bg-indigo-500 rounded-full transition-all duration-500" style="width: {{ min($installmentProgress, 100) }}%"></div>
+                                </div>
+                                <div class="flex justify-between mt-1 text-[9px] font-bold text-gray-400">
+                                    <span>Rs. {{ number_format($totalPaidInstallmentAmount) }} of Rs. {{ number_format($totalScheduledAmount) }}</span>
+                                    <span>Rs. {{ number_format($totalScheduledAmount - $totalPaidInstallmentAmount) }} left</span>
+                                </div>
+                            </div>
+                        @endif
+
+                        <!-- Template Info -->
+                        @if($client->property && $client->property->template)
+                            <div class="mb-4 p-3 bg-indigo-50/50 rounded-xl border border-indigo-100">
+                                <div class="flex items-center gap-2">
+                                    <span class="text-xs font-semibold text-indigo-600">Template:</span>
+                                    <span class="text-sm font-bold text-indigo-800">{{ $client->property->template->name }}</span>
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase tracking-wider
+                                        {{ match($client->property->template->type) {
+                                            'equal_split' => 'bg-emerald-100 text-emerald-700',
+                                            'graduated' => 'bg-amber-100 text-amber-700',
+                                            'balloon' => 'bg-purple-100 text-purple-700',
+                                            default => 'bg-gray-100 text-gray-700',
+                                        } }}">
+                                        {{ $client->property->template->type_label }}
+                                    </span>
+                                    <span class="text-xs text-indigo-400">({{ $client->property->template->duration_months }} months)</span>
+                                </div>
+                            </div>
+                        @endif
+
                         <h3 class="font-bold text-gray-800 text-md border-b border-gray-100 pb-3 flex items-center justify-between">
                             <span>Installment Schedule</span>
                             <div class="flex items-center gap-2">
@@ -206,6 +334,8 @@
                                             <th class="pb-3">No.</th>
                                             <th class="pb-3">Due Date</th>
                                             <th class="pb-3 text-right">Amount</th>
+                                            <th class="pb-3 text-right">Late Fee</th>
+                                            <th class="pb-3 text-right">Total Due</th>
                                             <th class="pb-3 text-right">Status</th>
                                             <th class="pb-3 text-right">Action</th>
                                         </tr>
@@ -218,31 +348,48 @@
                                                 </td>
                                                 <td class="py-4 text-gray-600 font-medium">
                                                     {{ $installment->due_date->format('M d, Y') }}
-                                                    @if($installment->status === 'pending' && $installment->due_date->isPast())
-                                                        <span class="ml-2 text-[10px] text-rose-600 font-bold bg-rose-50 px-1.5 py-0.5 rounded-md uppercase border border-rose-100">Overdue</span>
-                                                    @endif
                                                 </td>
                                                 <td class="py-4 text-right">
                                                     <div class="font-bold {{ $installment->status === 'paid' ? 'text-emerald-600 line-through' : 'text-gray-800' }}">Rs. {{ number_format($installment->amount) }}</div>
                                                 </td>
                                                 <td class="py-4 text-right">
-                                                    @if($installment->status === 'paid')
-                                                        <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-extrabold bg-emerald-50 text-emerald-600 uppercase tracking-wider border border-emerald-100">Paid</span>
+                                                    @if($installment->status === 'pending' && auth()->user()->can('manage installments'))
+                                                        <form action="{{ route('clients.installments.late-fee', [$client->id, $installment->id]) }}" method="POST" class="inline-flex items-center gap-1 justify-end">
+                                                            @csrf
+                                                            @method('PATCH')
+                                                            <input type="number" name="late_fee_amount" step="0.01" min="0" value="{{ $installment->late_fee_amount }}" class="w-24 text-right text-xs rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500">
+                                                            <button type="submit" title="Set Late Fee" class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-indigo-50 hover:bg-indigo-100 text-indigo-500 hover:text-indigo-700 border border-indigo-100 transition cursor-pointer">
+                                                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                                                            </button>
+                                                        </form>
+                                                    @elseif($installment->has_late_fee)
+                                                        <div class="font-semibold text-rose-600">Rs. {{ number_format($installment->late_fee_amount) }}</div>
                                                     @else
-                                                        <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-extrabold bg-orange-50 text-orange-600 uppercase tracking-wider border border-orange-100">Pending</span>
+                                                        <span class="text-gray-400">—</span>
                                                     @endif
                                                 </td>
                                                 <td class="py-4 text-right">
+                                                    <div class="font-bold {{ $installment->status === 'paid' ? 'text-emerald-600 line-through' : ($installment->has_late_fee ? 'text-rose-700' : 'text-gray-800') }}">Rs. {{ number_format($installment->total_due) }}</div>
+                                                </td>
+                                                <td class="py-4 text-right">
+                                                    {!! $installment->status_badge !!}
+                                                </td>
+                                                <td class="py-4 text-right">
                                                     @if($installment->status === 'pending')
-                                                        @can('delete installments')
-                                                            <form action="{{ route('clients.installments.destroy', [$client->id, $installment->id]) }}" method="POST" onsubmit="return confirm('Delete installment #{{ $installment->installment_number }}?')">
-                                                                @csrf
-                                                                @method('DELETE')
-                                                                <button type="submit" title="Delete Installment" class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-rose-50 hover:bg-rose-100 text-rose-500 hover:text-rose-700 border border-rose-100 transition cursor-pointer">
-                                                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-                                                                </button>
-                                                            </form>
-                                                        @endcan
+                                                        <div class="flex items-center justify-end gap-1">
+                                                            <a href="{{ route('payments.checkout', [$client->id, $installment->id]) }}" title="Pay Online" class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-emerald-50 hover:bg-emerald-100 text-emerald-500 hover:text-emerald-700 border border-emerald-100 transition">
+                                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
+                                                            </a>
+                                                            @can('delete installments')
+                                                                <form action="{{ route('clients.installments.destroy', [$client->id, $installment->id]) }}" method="POST" onsubmit="return confirm('Delete installment #{{ $installment->installment_number }}?')">
+                                                                    @csrf
+                                                                    @method('DELETE')
+                                                                    <button type="submit" title="Delete Installment" class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-rose-50 hover:bg-rose-100 text-rose-500 hover:text-rose-700 border border-rose-100 transition cursor-pointer">
+                                                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                                                    </button>
+                                                                </form>
+                                                            @endcan
+                                                        </div>
                                                     @endif
                                                 </td>
                                             </tr>
@@ -258,7 +405,7 @@
                         
                         @can('manage installments')
                         <!-- Collapsible Form for Setup / Re-plan -->
-                        <div x-data="{ showPlanner: false }" class="mt-4 pt-4 border-t border-gray-100">
+                        <div x-data="{ showPlanner: false, template: 'monthly' }" class="mt-4 pt-4 border-t border-gray-100">
                             <button @click="showPlanner = !showPlanner" type="button" class="w-full text-center text-xs font-bold text-indigo-600 hover:text-indigo-800 py-2 bg-indigo-50 hover:bg-indigo-100 rounded-xl transition cursor-pointer border border-indigo-100">
                                 <span x-text="showPlanner ? 'Close Planner' : 'Setup / Restructure Installment Plan'"></span>
                             </button>
@@ -269,17 +416,36 @@
                                     <h4 class="text-sm font-bold text-gray-800 mb-2">Restructure / Create New Plan</h4>
                                     <p class="text-xs text-gray-500 mb-4">This will delete all current <strong class="text-orange-600">Pending</strong> installments and generate a new schedule for the remaining balance (<strong class="text-gray-800">Rs. {{ number_format($remainingBalance) }}</strong>).</p>
 
+                                    <!-- Template Quick Select -->
+                                    <div>
+                                        <label class="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Quick Template</label>
+                                        <div class="grid grid-cols-3 gap-2">
+                                            <button type="button" @click="template = 'monthly'; document.querySelector('[name=installment_interval]').value = 'monthly'" :class="template === 'monthly' ? 'bg-indigo-100 border-indigo-300 text-indigo-700' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'" class="px-3 py-2 rounded-xl border text-xs font-bold transition cursor-pointer text-center">
+                                                Monthly
+                                            </button>
+                                            <button type="button" @click="template = 'quarterly'; document.querySelector('[name=installment_interval]').value = 'quarterly'" :class="template === 'quarterly' ? 'bg-indigo-100 border-indigo-300 text-indigo-700' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'" class="px-3 py-2 rounded-xl border text-xs font-bold transition cursor-pointer text-center">
+                                                Quarterly
+                                            </button>
+                                            <button type="button" @click="template = 'custom'" :class="template === 'custom' ? 'bg-indigo-100 border-indigo-300 text-indigo-700' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'" class="px-3 py-2 rounded-xl border text-xs font-bold transition cursor-pointer text-center">
+                                                Custom
+                                            </button>
+                                        </div>
+                                    </div>
+
                                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <div>
                                             <label class="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Number of Installments</label>
                                             <input type="number" name="installment_count" min="1" required class="w-full rounded-xl border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 text-sm">
                                         </div>
-                                        <div>
+                                        <div x-show="template === 'custom'">
                                             <label class="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Interval</label>
                                             <select name="installment_interval" required class="w-full rounded-xl border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 text-sm">
                                                 <option value="monthly">Monthly</option>
                                                 <option value="quarterly">Quarterly</option>
                                             </select>
+                                        </div>
+                                        <div x-show="template !== 'custom'">
+                                            <input type="hidden" name="installment_interval" :value="template">
                                         </div>
                                     </div>
                                     <div>
@@ -300,9 +466,16 @@
 
                     <!-- Payment Ledger -->
                     <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 space-y-6">
+                        @php
+                            $totalPaymentsCount = $client->payments->count();
+                            $totalPaymentsAmount = $client->payments->sum('amount');
+                        @endphp
                         <h3 class="font-bold text-gray-800 text-md border-b border-gray-100 pb-3 flex items-center justify-between">
                             <span>Payment History Ledger</span>
-                            <span class="text-xs bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-md font-semibold">{{ $client->payments->count() }} Payments</span>
+                            <div class="flex items-center gap-2">
+                                <span class="text-xs bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-md font-semibold">{{ $totalPaymentsCount }} Payments</span>
+                                <span class="text-xs bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-md font-semibold">Rs. {{ number_format($totalPaymentsAmount) }}</span>
+                            </div>
                         </h3>
                         <div class="overflow-x-auto">
                             <table class="w-full text-left border-collapse text-sm">
@@ -317,7 +490,7 @@
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-gray-100">
-                                    @forelse($client->payments as $payment)
+                                    @forelse($client->payments->sortByDesc('payment_date')->values() as $payment)
                                         <tr>
                                             <td class="py-4 font-semibold text-gray-800">
                                                 #{{ $payment->payment_number }}
@@ -325,17 +498,25 @@
                                             <td class="py-4 font-bold text-indigo-600">
                                                 Rs. {{ number_format($payment->amount) }}
                                             </td>
-                                            <td class="py-4 text-gray-600">
+                                            <td class="py-4 text-gray-600 max-w-[200px] truncate" title="{{ $payment->particulars }}">
                                                 {{ $payment->particulars }}
                                             </td>
                                             <td class="py-4">
-                                                <div class="text-gray-800 font-semibold">{{ $payment->payment_method }}</div>
+                                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider {{ $payment->method_badge }}">
+                                                    {{ str_replace('_', ' ', $payment->payment_method) }}
+                                                </span>
                                                 @if($payment->bank_name)
-                                                    <span class="text-xxs text-gray-400 uppercase tracking-widest block">{{ $payment->bank_name }} {{ $payment->cheque_number }}</span>
+                                                    <span class="text-[9px] text-gray-400 uppercase tracking-widest block mt-0.5">{{ $payment->bank_name }} {{ $payment->cheque_number }}</span>
                                                 @endif
                                             </td>
-                                            <td class="py-4 text-gray-500">
+                                            <td class="py-4 text-gray-500 text-xs">
                                                 {{ $payment->payment_date }}
+                                                @if($payment->created_at)
+                                                    <span class="block text-[9px] text-gray-400 mt-0.5">Logged {{ $payment->created_at->format('M d, Y h:i A') }}</span>
+                                                @endif
+                                                @if($payment->created_by)
+                                                    <span class="block text-[9px] text-gray-400 mt-0.5">by {{ $payment->creator?->name ?? 'System' }}</span>
+                                                @endif
                                             </td>
                                             <td class="py-4 text-right">
                                                 @if($payment->receipt)
@@ -388,7 +569,12 @@
                                     <li class="py-3 flex justify-between items-center gap-3">
                                         <div class="min-w-0">
                                             <div class="font-semibold text-gray-800 truncate" title="{{ $document->original_filename }}">{{ $document->original_filename }}</div>
-                                            <span class="text-xxs uppercase tracking-wider text-indigo-600 font-bold bg-indigo-50 px-1.5 py-0.5 rounded">{{ $document->document_type }}</span>
+                                            <div class="flex items-center gap-1.5 mt-0.5">
+                                                <span class="text-xxs uppercase tracking-wider text-indigo-600 font-bold bg-indigo-50 px-1.5 py-0.5 rounded">{{ $document->document_type }}</span>
+                                                @if($document->versions()->count() > 0)
+                                                    <span class="text-xxs text-gray-400 font-semibold">{{ $document->versions()->count() }} version(s)</span>
+                                                @endif
+                                            </div>
                                         </div>
                                         <a href="{{ $document->google_drive_file_url }}" target="_blank" class="inline-flex items-center text-indigo-600 hover:text-indigo-500 font-semibold flex-shrink-0">
                                             View

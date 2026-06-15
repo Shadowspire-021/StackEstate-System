@@ -121,7 +121,6 @@
                                 autocomplete="off"
                                 class="w-full rounded-xl border-gray-200 focus:border-indigo-500 focus:ring-indigo-500 text-sm font-semibold text-gray-800"
                             >
-                            <!-- Custom dropdown box with scrollbar style -->
                             <div 
                                 id="block_dropdown" 
                                 style="max-height: 200px; overflow-y: auto; display: none;"
@@ -132,17 +131,39 @@
                     </div>
 
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Unit (Optional)</label>
+                            <select id="unit_id" name="unit_id" class="w-full rounded-xl border-gray-200 focus:border-indigo-500 focus:ring-indigo-500 text-sm">
+                                @if($client->property && $client->property->unit_id)
+                                    <option value="{{ $client->property->unit_id }}" selected>
+                                        Current: {{ $client->unit->unit_number ?? 'N/A' }} ({{ $client->unit->property->plot_number ?? 'N/A' }}) - {{ $client->unit->status ?? 'N/A' }}
+                                    </option>
+                                @else
+                                    <option value="">-- Select Available Unit --</option>
+                                @endif
+                            </select>
+                            <div id="unit-loading" class="hidden mt-1 text-xs text-indigo-600 font-semibold">
+                                <svg class="animate-spin inline w-3 h-3 mr-1" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                                Loading available units...
+                            </div>
+                            <div id="unit-preview" class="hidden mt-2 p-3 bg-indigo-50 rounded-xl border border-indigo-100 text-xs space-y-1">
+                                <div class="font-bold text-indigo-800" id="unit-preview-number"></div>
+                                <div class="text-indigo-600"><span class="font-semibold">Floor:</span> <span id="unit-preview-floor"></span></div>
+                                <div class="text-indigo-600"><span class="font-semibold">Size:</span> <span id="unit-preview-size"></span> sq.yd</div>
+                                <div class="text-indigo-600"><span class="font-semibold">Price:</span> Rs. <span id="unit-preview-price"></span></div>
+                            </div>
+                        </div>
                         <div class="md:col-span-2">
                             <label class="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Location / Project Name</label>
                             <input type="text" name="location" value="{{ old('location', $client->property->location) }}" class="w-full rounded-xl border-gray-200 focus:border-indigo-500 focus:ring-indigo-500 text-sm">
                         </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <div>
                             <label class="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Size (Sq. Yards)</label>
                             <input type="number" step="0.1" name="size_sqyards" value="{{ old('size_sqyards', $client->property->size_sqyards) }}" class="w-full rounded-xl border-gray-200 focus:border-indigo-500 focus:ring-indigo-500 text-sm">
                         </div>
-                    </div>
-
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
                             <label class="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Total Deal Value (Rs.)</label>
                             <input type="number" name="total_deal_value" value="{{ old('total_deal_value', $client->property->total_deal_value) }}" class="w-full rounded-xl border-gray-200 focus:border-indigo-500 focus:ring-indigo-500 text-sm">
@@ -258,6 +279,101 @@
                 
                 input.value = formatted;
             }
+
+            // AJAX Unit Loading based on Property
+            const unitSelect = document.getElementById('unit_id');
+            const unitLoading = document.getElementById('unit-loading');
+            const unitPreview = document.getElementById('unit-preview');
+            const propertyId = '{{ $client->property_id }}';
+
+            // Find or create a hidden property_id input
+            let propertyIdInput = document.querySelector('input[name="property_id"]');
+            if (!propertyIdInput) {
+                propertyIdInput = document.createElement('input');
+                propertyIdInput.type = 'hidden';
+                propertyIdInput.name = 'property_id';
+                propertyIdInput.value = propertyId;
+                unitSelect.parentNode.appendChild(propertyIdInput);
+            }
+
+            function loadUnits() {
+                const propId = propertyIdInput.value;
+                
+                if (!propId) {
+                    unitSelect.innerHTML = '<option value="">-- No Property Assigned --</option>';
+                    unitSelect.disabled = true;
+                    unitPreview.classList.add('hidden');
+                    return;
+                }
+
+                unitSelect.disabled = true;
+                unitLoading.classList.remove('hidden');
+                unitPreview.classList.add('hidden');
+                unitSelect.innerHTML = '<option value="">Loading...</option>';
+
+                fetch(`/clients/units-by-property?property_id=${propId}`)
+                    .then(response => response.json())
+                    .then(units => {
+                        const currentUnitId = '{{ $client->property->unit_id ?? "" }}';
+                        
+                        unitSelect.innerHTML = '<option value="">-- Select Available Unit --</option>';
+                        
+                        if (units.length === 0 && !currentUnitId) {
+                            unitSelect.innerHTML += '<option value="" disabled>No available units for this property</option>';
+                        } else {
+                            // Add current unit first if assigned
+                            if (currentUnitId) {
+                                const currentOption = document.createElement('option');
+                                currentOption.value = currentUnitId;
+                                currentOption.textContent = 'Current: {{ $client->unit->unit_number ?? "N/A" }} ({{ $client->unit->status ?? "N/A" }})';
+                                currentOption.selected = true;
+                                unitSelect.appendChild(currentOption);
+                            }
+                            
+                            // Add available units
+                            units.forEach(unit => {
+                                if (unit.id != currentUnitId) {
+                                    const option = document.createElement('option');
+                                    option.value = unit.id;
+                                    option.textContent = `${unit.unit_number} (Floor: ${unit.floor_number || 'N/A'}) - Rs. ${unit.price ? Number(unit.price).toLocaleString() : 'N/A'}`;
+                                    option.dataset.unit = JSON.stringify(unit);
+                                    unitSelect.appendChild(option);
+                                }
+                            });
+                        }
+                        
+                        unitSelect.disabled = false;
+                        unitLoading.classList.add('hidden');
+                    })
+                    .catch(error => {
+                        console.error('Error loading units:', error);
+                        unitSelect.innerHTML = '<option value="">Error loading units</option>';
+                        unitLoading.classList.add('hidden');
+                    });
+            }
+
+            function showUnitPreview(unit) {
+                document.getElementById('unit-preview-number').textContent = unit.unit_number;
+                document.getElementById('unit-preview-floor').textContent = unit.floor_number || 'N/A';
+                document.getElementById('unit-preview-size').textContent = unit.size || 'N/A';
+                document.getElementById('unit-preview-price').textContent = unit.price ? Number(unit.price).toLocaleString() : 'N/A';
+                unitPreview.classList.remove('hidden');
+            }
+
+            // Load units when unit selection changes
+            if (unitSelect) {
+                unitSelect.addEventListener('change', function() {
+                    const selectedOption = this.selectedOptions[0];
+                    if (selectedOption && selectedOption.dataset.unit) {
+                        showUnitPreview(JSON.parse(selectedOption.dataset.unit));
+                    } else {
+                        unitPreview.classList.add('hidden');
+                    }
+                });
+            }
+
+            // Initial load
+            loadUnits();
             
             // Custom Autocomplete Dropdown for Block / Phase
             const blockInput = document.getElementById('block_input');
